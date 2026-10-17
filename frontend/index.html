@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgentPay Firewall &mdash; On-chain Spending Limits for AI Agents</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230B0F1A' rx='8'/%3E%3Cpath d='M16 4 L28 12 L16 20 L4 12 Z' fill='%234F7CFF'/%3E%3Ccircle cx='16' cy='12' r='3' fill='%23E6EAF2'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0B0F1A;
+    --surface: #111827;
+    --surface-2: #172033;
+    --border: #1F2A44;
+    --text: #E6EAF2;
+    --muted: #8B97B3;
+    --primary: #4F7CFF;
+    --primary-hover: #3a68e8;
+    --success: #22C55E;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --ink: #0B0F1A;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(2, 6, 23, 0.35);
+    --shadow-sm: 0 1px 3px rgba(2, 6, 23, 0.2);
+    --transition: 150ms ease;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background var(--transition), opacity var(--transition), transform var(--transition);
+  }
+  button:active { transform: translateY(1px); }
+  button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(11, 15, 26, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--primary), #3a68e8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 14px rgba(79, 124, 255, 0.35);
+  }
+  .logo-mark svg { width: 18px; height: 18px; fill: #fff; }
+  .logo-text { letter-spacing: -0.4px; }
+  .network-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #14213d;
+    border: 1px solid var(--border);
+    color: #9fb3d8;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+  }
+  .network-badge.sepolia { border-color: var(--primary); color: var(--primary); background: #162a4f; }
+  .vault-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .vault-chip .addr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    color: var(--text);
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .btn-copy {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-copy svg { width: 16px; height: 16px; fill: var(--muted); }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+  }
+  .status-pill.active {
+    background: #143228;
+    color: var(--success);
+    border: 1px solid #1e5a3d;
+  }
+  .status-pill.frozen {
+    background: #3c1414;
+    color: var(--danger);
+    border: 1px solid #7a2323;
+  }
+  .pill-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .pill-dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .pill-dot.frozen { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .btn-connect {
+    background: var(--primary);
+    color: #fff;
+    padding: 8px 16px;
+  }
+  .btn-connect:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-connect.connected {
+    background: var(--surface-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  /* ---------- Page shell ---------- */
+  .page { max-width: 1200px; margin: 0 auto; padding: 28px 24px 48px; }
+  .section { margin-bottom: 28px; }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .hero p {
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 16px;
+    max-width: 700px;
+    line-height: 1.6;
+  }
+  .steps { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .step .num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    letter-spacing: -0.2px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+  /* ---------- Stat tiles ---------- */
+  .stat {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stat .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .stat .stat-value { font-size: 19px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat .stat-sub { font-size: 12px; color: var(--muted); }
+  .progress-wrap { margin-top: 10px; height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
+  .progress-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease, background-color 0.3s ease; }
+  .progress-bar.ok { background: var(--success); }
+  .progress-bar.warn { background: var(--warning); }
+  .progress-bar.danger { background: var(--danger); }
+
+  /* ---------- Buttons ---------- */
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-success { background: var(--success); color: var(--ink); }
+  .btn-success:hover:not(:disabled) { background: #3ede6b; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: #dc2626; }
+  .btn-warning { background: var(--warning); color: var(--ink); }
+  .btn-warning:hover:not(:disabled) { background: #fbbf24; }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-loading { position: relative; color: transparent !important; }
+  .btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Result card ---------- */
+  .result-card {
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 14px;
+    display: none;
+    animation: fadeIn var(--transition) ease;
+  }
+  .result-card.show { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .result-ok { background: #12331e; border: 1px solid #1e5a3d; color: #bef2bb; }
+  .result-bad { background: #3a1212; border: 1px solid #7a2323; color: #fecaca; }
+  .result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .result-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .result-ok .result-icon { background: #1e5a3d; }
+  .result-bad .result-icon { background: #7a2323; }
+  .result-title { font-size: 16px; font-weight: 800; letter-spacing: -0.4px; }
+  .result-ok .result-title { color: var(--success); }
+  .result-bad .result-title { color: var(--danger); }
+  .result-reason { font-size: 14px; color: inherit; opacity: 0.9; margin-bottom: 8px; line-height: 1.5; }
+  .result-tech { font-size: 11px; font-family: ui-monospace, monospace; color: var(--muted); background: #0b1020; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; display: inline-block; }
+
+  /* ---------- Demo panel ---------- */
+  .demo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #2a1f0e;
+    border: 1px solid #5b3a0e;
+    color: var(--warning);
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .demo-steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .demo-step {
+    flex: 1;
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: center;
+    border-bottom: 2px solid transparent;
+  }
+  .demo-step.active { color: var(--text); border-bottom-color: var(--primary); }
+  .demo-step.done { color: var(--success); border-bottom-color: var(--success); }
+
+  /* ---------- Owner controls ---------- */
+  .owner-locked {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--muted);
+  }
+  .owner-locked .lock-icon { width: 48px; height: 48px; margin: 0 auto 12px; opacity: 0.5; }
+  .owner-actions { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .owner-actions .btn { flex: 1; min-width: 130px; }
+
+  /* ---------- Pending requests ---------- */
+  .req-list { display: flex; flex-direction: column; gap: 8px; }
+  .req-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .req-info { flex: 1; min-width: 0; }
+  .req-id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+  .req-amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .req-reason { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .req-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .req-actions .btn { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
+
+  /* ---------- Live activity ---------- */
+  .feed-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .timeline { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); overflow: hidden; display: flex; flex-direction: column; }
+  .timeline-empty { padding: 32px 20px; text-align: center; color: var(--muted); }
+  .timeline-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #101626;
+  }
+  .timeline-item:last-child { border-bottom: none; }
+  .item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .item-dot.payment { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .item-dot.request { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+  .item-dot.freeze { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .item-content { flex: 1; min-width: 0; }
+  .item-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .item-meta { font-size: 11.5px; color: var(--muted); }
+  .item-tx { font-size: 11px; color: var(--primary); text-decoration: none; margin-left: 8px; }
+  .item-tx:hover { text-decoration: underline; }
+  .skeleton { background: linear-gradient(90deg, #101626 25%, #1a2136 50%, #101626 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; height: 16px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .skeleton-text { height: 14px; border-radius: 4px; margin-bottom: 6px; }
+
+  /* ---------- Before / After ---------- */
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ba-card {
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .ba-before { background: #2d1212; border: 1px solid #5b2323; }
+  .ba-after { background: #12331e; border: 1px solid #1e5a3d; }
+  .ba-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .ba-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ba-before .ba-icon { background: #7a2323; }
+  .ba-after .ba-icon { background: #1e5a3d; }
+  .ba-title { font-size: 15px; font-weight: 800; }
+  .ba-before .ba-title { color: #fca5a5; }
+  .ba-after .ba-title { color: #bef2bb; }
+  .ba-desc { font-size: 13px; color: #c3c9d8; margin-bottom: 16px; line-height: 1.55; }
+  .ba-result {
+    margin-top: auto;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+  }
+  .ba-before .ba-result { background: #5b2323; color: #fca5a5; border: 1px solid #913434; }
+  .ba-after .ba-result { background: #1e5a3d; color: #bef2bb; border: 1px solid #2d6a4f; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(20px);
+    z-index: 1000;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: var(--danger); border-color: #7a2323; }
+  .toast.success { background: var(--success); color: var(--ink); border-color: #1e5a3d; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  footer p { margin: 6px 0; line-height: 1.6; }
+  .footer-links { margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } .ba-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .page { padding: 16px 16px 40px; } .topbar-inner { padding: 12px 16px; } }
+</style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <a class="logo" href="#" aria-label="AgentPay Firewall home">
+        <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M12 2 L20 9 L12 16 L4 9 Z" fill="none" stroke="white" stroke-width="2.5" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg></div>
+        <div class="logo-text">AgentPay Firewall</div>
+      </a>
+      <span class="network-badge" id="netBadge">loading&hellip;</span>
+      <div class="vault-chip" id="vaultChip" style="display:none;">
+        <span class="addr" id="vaultAddr">&hellip;</span>
+        <a id="vaultEtherscan" class="addr-link" style="margin-left:6px; font-size:11px; color:var(--primary); text-decoration:underline;" target="_blank" rel="noopener">Etherscan</a>
+        <button class="btn-copy" id="btnCopy" title="Copy vault address" aria-label="Copy vault address"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      </div>
+      <span class="status-pill active" id="statusPill"><span class="pill-dot active"></span>ACTIVE</span>
+      <button class="btn-connect" id="btnConnect" aria-label="Connect wallet">Connect wallet</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <!-- Hero -->
+    <div class="hero">
+      <p>Let AI agents spend crypto safely. Smart-contract limits stop a hacked or tricked agent from draining your wallet.</p>
+      <div class="steps">
+        <div class="step"><span class="num">1</span>Owner sets limits</div>
+        <div class="step"><span class="num">2</span>Agent spends within limits</div>
+        <div class="step"><span class="num">3</span>Firewall blocks everything else</div>
+      </div>
+    </div>
+
+    <!-- Stat tiles -->
+    <div class="section">
+      <div class="grid">
+        <div class="stat">
+          <div class="stat-label">Vault balance</div>
+          <div class="stat-value tabular" id="statVault">&mdash;</div>
+          <div class="stat-sub">ETH held by AgentPay</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Per-transaction limit</div>
+          <div class="stat-value tabular" id="statCap">&mdash;</div>
+          <div class="stat-sub">max per agent payment</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Daily budget</div>
+          <div class="stat-value tabular" id="statBudget">&mdash;</div>
+          <div class="stat-sub">per 24h window</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Spent today</div>
+          <div class="stat-value tabular" id="statSpent">&mdash;</div>
+          <div class="stat-sub" id="statSpentSub">&mdash;</div>
+          <div class="progress-wrap"><div class="progress-bar ok" id="statProgress"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Approved recipients -->
+    <div class="section">
+      <div class="stat">
+        <div class="stat-label">Approved recipients</div>
+        <div id="recipientsArea" style="font-size:13px; color:var(--muted);"></div>
+      </div>
+    </div>
+
+    <!-- Try the agent -->
+    <div class="card section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="label" style="font-size:15px; font-weight:700; color:var(--text);">Try the agent</div>
+        <div class="demo-badge">DEMO ONLY &middot; throwaway testnet key</div>
+      </div>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:14px; max-width:640px;">Simulated AI agent (not a real LLM). It uses the throwaway demo agent key from deployment.json. Each button attempts an on-chain payment and shows whether the firewall allows or blocks it.</p>
+      <div class="demo-steps">
+        <div class="demo-step active" id="demoStep1">1&mdash; Normal purchase</div>
+        <div class="demo-step" id="demoStep2">2&mdash; Overspend</div>
+        <div class="demo-step" id="demoStep3">3&mdash; Prompt injection</div>
+        <div class="demo-step" id="demoStep4">4&mdash; Request large payment</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" id="demoNormal">Normal purchase (0.001 ETH &rarr; merchant)</button>
+        <button class="btn btn-danger btn-sm" id="demoOverspend">Overspend (0.1 ETH &rarr; merchant)</button>
+        <button class="btn btn-danger btn-sm" id="demoPrompt">Prompt injection: send to attacker</button>
+        <button class="btn btn-warning btn-sm" id="demoRequest">Request a large payment (0.05 ETH)</button>
+      </div>
+      <div id="demoResult" class="result-card"></div>
+    </div>
+
+    <!-- Owner controls -->
+    <div class="card section" id="ownerControls" style="display:none;">
+      <div class="label" style="font-size:15px; font-weight:700; color:var(--text);">Owner controls</div>
+      <p id="ownerHint" style="font-size:13px; color:var(--muted); margin-bottom:14px;"></p>
+      <div class="owner-actions">
+        <button class="btn btn-danger btn-sm" id="btnFreeze">Freeze agent</button>
+        <button class="btn btn-outline btn-sm" id="btnUnfreeze">Unfreeze agent</button>
+      </div>
+      <div class="section-title" style="margin-top:14px;">Pending payment requests</div>
+      <div id="pendingList"></div>
+    </div>
+
+    <!-- Live activity -->
+    <div class="card section">
+      <div class="feed-toolbar">
+        <div class="section-title">Live activity</div>
+        <button class="btn btn-outline btn-sm" id="btnRefresh">Refresh</button>
+      </div>
+      <div id="feedSkeleton" style="display:none;">
+        <div class="skeleton" style="width:60%;"></div>
+        <div class="skeleton-text" style="width:40%;"></div>
+        <div class="skeleton" style="width:45%;"></div>
+        <div class="skeleton-text" style="width:55%;"></div>
+      </div>
+      <div class="timeline" id="feed"></div>
+      <div id="feedEmpty" class="timeline-empty" style="display:none;">
+        <svg viewBox="0 0 24 24" width="32" height="32" style="margin:0 auto 10px; opacity:0.5;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <div>No on-chain activity yet.</div>
+        <div style="font-size:12px; margin-top:4px;">Payments, requests, and freezes appear here.</div>
+      </div>
+    </div>
+
+    <!-- Before / After -->
+    <div class="section">
+      <div class="ba-grid">
+        <div class="ba-card ba-before">
+          <div class="ba-head">
+            <div class="ba-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+            <div class="ba-title">Without AgentPay</div>
+          </div>
+          <div class="ba-desc">Unprotected wallet: one injected command drains everything to any address, with no caps, no budget, no allowlist.</div>
+          <div class="ba-result">Wallet drained</div>
+        </div>
+        <div class="ba-card ba-after">
+          <div class="ba-head">
+            <div class="ba-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 17V7l-2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="ba-title">With AgentPay</div>
+          </div>
+          <div class="ba-desc">The same injected command is blocked on-chain: recipient not approved, per-tx cap, daily budget enforced.</div>
+          <div class="ba-result">Attacker gets 0 ETH</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="section">
+      <p><strong>Honest limits:</strong> AgentPay limits damage from a misbehaving or stolen AGENT key. It does not protect against a compromised OWNER key (except guardian + delay on loosening changes). ETH demo only. The AI agent is simulated, not a real LLM.</p>
+      <div class="footer-links">
+        <a id="linkEtherscan" target="_blank" rel="noopener">View on Etherscan</a>
+        <a href="https://github.com" target="_blank" rel="noopener">GitHub repo</a>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { ethers } from "https://esm.sh/ethers@6.13.4";
+
+    const ETH = "0x0000000000000000000000000000000000000000";
+
+    /* ---------- elements ---------- */
+    const els = {
+      netBadge: document.getElementById("netBadge"),
+      btnConnect: document.getElementById("btnConnect"),
+      statusPill: document.getElementById("statusPill"),
+      vaultChip: document.getElementById("vaultChip"),
+      vaultAddr: document.getElementById("vaultAddr"),
+      vaultEtherscan: document.getElementById("vaultEtherscan"),
+      btnCopy: document.getElementById("btnCopy"),
+      statVault: document.getElementById("statVault"),
+      statCap: document.getElementById("statCap"),
+      statBudget: document.getElementById("statBudget"),
+      statSpent: document.getElementById("statSpent"),
+      statSpentSub: document.getElementById("statSpentSub"),
+      statProgress: document.getElementById("statProgress"),
+      ownerControls: document.getElementById("ownerControls"),
+      ownerHint: document.getElementById("ownerHint"),
+      btnFreeze: document.getElementById("btnFreeze"),
+      btnUnfreeze: document.getElementById("btnUnfreeze"),
+      pendingList: document.getElementById("pendingList"),
+      demoResult: document.getElementById("demoResult"),
+      demoNormal: document.getElementById("demoNormal"),
+      demoOverspend: document.getElementById("demoOverspend"),
+      demoPrompt: document.getElementById("demoPrompt"),
+      demoRequest: document.getElementById("demoRequest"),
+      demoSteps: {
+        1: document.getElementById("demoStep1"),
+        2: document.getElementById("demoStep2"),
+        3: document.getElementById("demoStep3"),
+        4: document.getElementById("demoStep4"),
+      },
+      feed: document.getElementById("feed"),
+      feedSkeleton: document.getElementById("feedSkeleton"),
+      feedEmpty: document.getElementById("feedEmpty"),
+      btnRefresh: document.getElementById("btnRefresh"),
+      toast: document.getElementById("toast"),
+      linkEtherscan: document.getElementById("linkEtherscan"),
+    };
+
+    /* ---------- config ---------- */
+    let config, abi, provider, contractRead, signer, agentContract, connectedAddress;
+    let deployBlock = null;
+
+    async function loadConfig() {
+      const [depRes, abiRes] = await Promise.all([
+        fetch("./deployment.json"),
+        fetch("./abi.json"),
+      ]);
+      config = await depRes.json();
+      abi = await abiRes.json();
+      provider = new ethers.JsonRpcProvider(config.rpc);
+      contractRead = new ethers.Contract(config.agentPay, abi, provider);
+      deployBlock = config.deployBlock || null;
+      if (config.demoAgentKey_TESTNET_ONLY) {
+        agentContract = new ethers.Contract(config.agentPay, abi, new ethers.Wallet(config.demoAgentKey_TESTNET_ONLY, provider));
+      }
+      renderNetwork();
+      els.linkEtherscan.href = Number(config.chainId) === 11155111
+        ? `https://sepolia.etherscan.io/address/${config.agentPay}`
+        : "#";
+      if (Number(config.chainId) !== 11155111) {
+        els.linkEtherscan.style.color = "var(--muted)";
+        els.linkEtherscan.style.textDecoration = "none";
+        els.linkEtherscan.onclick = (e) => e.preventDefault();
+      }
+    }
+
+    function renderNetwork() {
+      const isSepolia = Number(config.chainId) === 11155111;
+      els.netBadge.textContent = isSepolia ? "Ethereum Sepolia" : "Localhost";
+      els.netBadge.className = "network-badge" + (isSepolia ? " sepolia" : "");
+    }
+
+    function shortAddr(a) {
+      if (!a) return a;
+      return a.slice(0, 6) + "…" + a.slice(-4);
+    }
+
+    function fmtEther(wei) {
+      if (wei === null || wei === undefined) return "—";
+      return (Number(wei) / 1e18).toFixed(6) + " ETH";
+    }
+
+    /* ---------- connect ---------- */
+    async function connectWallet() {
+      if (!window.ethereum) {
+        showToast("MetaMask not installed", "error");
+        return;
+      }
+      try {
+        els.btnConnect.disabled = true;
+        els.btnConnect.textContent = "Connecting&hellip;";
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const browserProvider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await browserProvider.getSigner();
+        connectedAddress = await signer.getAddress();
+        els.btnConnect.textContent = "Connected";
+        els.btnConnect.className = "btn-connect connected";
+        els.btnConnect.title = connectedAddress;
+        await loadData();
+        window.ethereum.on("accountsChanged", (accs) => {
+          connectedAddress = accs[0] || null;
+          checkOwner();
+          loadData();
+        });
+        window.ethereum.on("chainChanged", () => window.location.reload());
+      } catch (e) {
+        els.btnConnect.disabled = false;
+        els.btnConnect.textContent = "Connect wallet";
+        if (String(e.code) === "4001" || /user rejected/i.test(String(e.message || e))) {
+          showToast("Connection rejected by user", "error");
+        } else {
+          showToast("Connect failed: " + (e.message || e), "error");
+        }
+      }
+    }
+    els.btnConnect.addEventListener("click", connectWallet);
+
+    function checkOwner() {
+      const isOwner = connectedAddress && connectedAddress.toLowerCase() === config.owner.toLowerCase();
+      if (isOwner) {
+        els.ownerControls.style.display = "block";
+        els.ownerHint.style.display = "none";
+      } else {
+        els.ownerControls.style.display = "none";
+        if (connectedAddress) {
+          els.ownerHint.textContent = "Connected wallet is not the contract owner. Owner controls are disabled.";
+        } else {
+          els.ownerHint.textContent = "Connect the owner wallet to manage freeze and pending requests.";
+        }
+        els.ownerHint.style.display = "block";
+      }
+    }
+
+    /* ---------- read helpers ---------- */
+    async function staticCall(contract, methodName, ...args) {
+      const data = contract.interface.encodeFunctionData(methodName, args);
+      return await provider.call({ to: contract.target, data });
+    }
+
+    function errorName(err) {
+      try {
+        const data = err && err.data;
+        if (typeof data === "string" && data.startsWith("0x") && data.length > 10) {
+          const desc = contractRead.interface.parseError(data);
+          return { name: desc.name, args: desc.args };
+        }
+      } catch { /* ignore */ }
+      return { name: String(err && err.message || err), args: null };
+    }
+
+    function friendlyError(name) {
+      const m = {
+        ExceedsPerTxCap: "over the per-transaction limit",
+        ExceedsDailyBudget: "over the daily budget",
+        NotAllowlisted: "recipient is not approved",
+        Frozen: "agent or vault is frozen",
+        NotAgent: "caller is not an active agent",
+        ZeroAmount: "zero amount",
+        InsufficientVaultBalance: "vault has insufficient balance",
+        RequestExpired: "request expired",
+        RequestNotPending: "no pending request",
+        ProposalNotReady: "proposal not ready",
+        NotAuthorized: "not authorized",
+        TransferFailed: "transfer failed",
+      };
+      return m[name] || name || "blocked by the firewall";
+    }
+
+    /* ---------- load data ---------- */
+    async function loadData() {
+      try {
+        // status
+        const frozen = await contractRead.globalFrozen();
+        els.statusPill.className = "status-pill " + (frozen ? "frozen" : "active");
+        els.statusPill.innerHTML = `<span class="pill-dot ${frozen ? "frozen" : "active"}"></span>${frozen ? "FROZEN" : "ACTIVE"}`;
+
+        // vault balance
+        const bal = await provider.getBalance(config.agentPay);
+        els.statVault.textContent = fmtEther(bal);
+        els.vaultAddr.textContent = shortAddr(config.agentPay);
+        els.vaultChip.style.display = "flex";
+
+        // policy
+        const pol = await contractRead.policies(config.agent, ETH);
+        els.statCap.textContent = fmtEther(pol.perTxCap);
+        els.statBudget.textContent = fmtEther(pol.dailyBudget);
+        els.statSpent.textContent = fmtEther(pol.spent);
+        const pct = Number(pol.dailyBudget) > 0 ? Math.min(100, (Number(pol.spent) / Number(pol.dailyBudget)) * 100) : 0;
+        els.statProgress.style.width = pct + "%";
+        els.statProgress.className = "progress-bar " + (pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok");
+        els.statSpentSub.textContent = pct.toFixed(0) + "% of daily budget used &middot; remaining " + fmtEther(pol.dailyBudget - pol.spent);
+
+        // recipients
+        const mAllowed = await contractRead.allowlist(config.agent, config.merchant);
+        const aAllowed = await contractRead.allowlist(config.agent, config.attacker);
+        // (rendered in recipients area below via stat area? We'll put in stat tiles via a small note)
+        document.getElementById("recipientsArea").innerHTML = `
+          <span class="rec-badge ${mAllowed ? "rec-yes" : "rec-no"}">${mAllowed ? "APPROVED" : "BLOCKED"}&nbsp;merchant ${shortAddr(config.merchant)}</span>
+          <span class="rec-badge rec-no">${aAllowed ? "APPROVED" : "BLOCKED"}&nbsp;attacker ${shortAddr(config.attacker)}</span>`;
+
+        // feed
+        await loadFeed();
+        // pending
+        await loadPending();
+        checkOwner();
+      } catch (e) {
+        console.error("loadData", e);
+        showToast("Failed to load data: " + (e.message || e), "error");
+      }
+    }
+
+    /* ---------- recipients badges (inject into stat area) ---------- */
+    function renderRecipients() {
+      // Placeholder - recipients shown via stat area if needed
+    }
+
+    /* ---------- feed ---------- */
+    async function loadFeed() {
+      els.feedSkeleton.style.display = "block";
+      els.feed.style.display = "none";
+      els.feedEmpty.style.display = "none";
+      try {
+        const latest = await provider.getBlockNumber();
+        const fromBlock = deployBlock ? Math.max(deployBlock, 0) : Math.max(0, latest - 50000);
+        const toBlock = latest;
+        const chunk = 5000;
+        const eventNames = ["PaymentExecuted", "PaymentRequested", "AgentFrozen", "GlobalFrozen"];
+        let all = [];
+        let cur = fromBlock;
+        while (cur <= toBlock) {
+          const end = Math.min(cur + chunk - 1, toBlock);
+          for (const evName of eventNames) {
+            try {
+              const filter = contractRead.filters[evName]();
+              const logs = await contractRead.queryFilter(filter, cur, end);
+              all.push(...logs);
+            } catch (e) {
+              console.warn(`feed ${evName} ${cur}-${end}`, e.message);
+            }
+          }
+          cur = end + 1;
+        }
+        all.sort((a, b) => (b.blockNumber || 0) - (a.blockNumber || 0));
+        renderFeed(all.slice(0, 60));
+      } catch (e) {
+        console.error("feed", e);
+        els.feedEmpty.textContent = "Feed unavailable.";
+        els.feedEmpty.style.display = "block";
+      } finally {
+        els.feedSkeleton.style.display = "none";
+      }
+    }
+
+    function renderFeed(events) {
+      els.feed.innerHTML = "";
+      if (!events || events.length === 0) {
+        els.feedEmpty.style.display = "block";
+        return;
+      }
+      const base = Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : null;
+      for (const ev of events) {
+        const div = document.createElement("div");
+        div.className = "timeline-item";
+        const args = ev.args || {};
+        let label = "", dot = "payment", txLink = "";
+        if (ev.eventName === "PaymentExecuted") {
+          label = `Payment executed &rarr; ${shortAddr(args.to)} &middot; ${fmtEther(args.amount)}`;
+          dot = "payment";
+        } else if (ev.eventName === "PaymentRequested") {
+          label = `Payment queued &rarr; ${shortAddr(args.to)} &middot; ${fmtEther(args.amount)} (id #${args.id})`;
+          dot = "request";
+        } else if (ev.eventName === "AgentFrozen") {
+          label = args.frozen ? `Agent frozen: ${shortAddr(args.agent)}` : `Agent unfrozen: ${shortAddr(args.agent)}`;
+          dot = "freeze";
+        } else if (ev.eventName === "GlobalFrozen") {
+          label = args.frozen ? "Vault frozen globally" : "Vault unfrozen globally";
+          dot = "freeze";
+        } else {
+          label = ev.eventName;
+        }
+        if (base && ev.transactionHash) {
+          txLink = `<a class="item-tx" href="${base}${ev.transactionHash}" target="_blank" rel="noopener">tx</a>`;
+        }
+        const ago = timeAgo(ev.blockNumber ? Date.now() : 0);
+        div.innerHTML = `
+          <span class="item-dot ${dot}"></span>
+          <div class="item-content">
+            <div class="item-title">${label}</div>
+            <div class="item-meta">block ${ev.blockNumber} ${txLink}</div>
+          </div>
+        `;
+        els.feed.appendChild(div);
+      }
+    }
+
+    function timeAgo() {
+      return "just now";
+    }
+
+    /* ---------- pending ---------- */
+    async function loadPending() {
+      els.pendingList.innerHTML = "";
+      try {
+        const count = await contractRead.requestCount();
+        let hasPending = false;
+        for (let i = 0n; i < count; i++) {
+          const r = await contractRead.requests(i);
+          if (!r.executed && !r.cancelled) {
+            hasPending = true;
+            const div = document.createElement("div");
+            div.className = "req-item";
+            div.innerHTML = `
+              <div class="req-info">
+                <div class="req-id">request #${r.id}</div>
+                <div class="req-amt">${fmtEther(r.amount)} &rarr; ${shortAddr(r.to)}</div>
+                <div class="req-reason">${r.reason || "&mdash;"}</div>
+              </div>
+              <div class="req-actions">
+                <button class="btn btn-outline btn-sm" data-id="${i}" data-action="approve">Approve</button>
+                <button class="btn btn-danger btn-sm" data-id="${i}" data-action="reject">Reject</button>
+              </div>
+            `;
+            els.pendingList.appendChild(div);
+          }
+        }
+        if (!hasPending) {
+          els.pendingList.innerHTML = '<div style="padding:10px; color:var(--muted); font-size:13px;">No pending requests.</div>';
+        }
+        els.pendingList.querySelectorAll("button").forEach(b => {
+          b.addEventListener("click", (e) => {
+            const id = BigInt(e.currentTarget.dataset.id);
+            const action = e.currentTarget.dataset.action;
+            handleOwnerAction(id, action);
+          });
+        });
+      } catch (e) {
+        console.error("pending", e);
+        els.pendingList.innerHTML = '<div style="padding:10px; color:var(--muted); font-size:13px;">Unable to load requests.</div>';
+      }
+    }
+
+    /* ---------- owner actions ---------- */
+    async function handleOwnerAction(id, action) {
+      if (!signer) { showToast("Connect the owner wallet first", "error"); return; }
+      const contract = contractRead.connect(signer);
+      try {
+        const tx = await contract[action === "approve" ? "approveRequest" : "rejectRequest"](id);
+        showToast(action + "ing&hellip;", "success");
+        await tx.wait();
+        showToast(action + "ed.", "success");
+        await loadData();
+      } catch (e) {
+        const { name } = errorName(e);
+        showToast("Failed: " + (name || e.message || e), "error");
+      }
+    }
+    els.btnFreeze.addEventListener("click", async () => {
+      if (!signer) { showToast("Connect the owner wallet first", "error"); return; }
+      try {
+        const tx = await contractRead.connect(signer).freezeAgent(config.agent);
+        showToast("Freezing agent&hellip;", "success");
+        await tx.wait();
+        showToast("Agent frozen.", "success");
+        await loadData();
+      } catch (e) { showToast("Freeze failed: " + (e.message || e), "error"); }
+    });
+    els.btnUnfreeze.addEventListener("click", async () => {
+      if (!signer) { showToast("Connect the owner wallet first", "error"); return; }
+      try {
+        const tx = await contractRead.connect(signer).unfreezeAgent(config.agent);
+        showToast("Unfreezing agent&hellip;", "success");
+        await tx.wait();
+        showToast("Agent unfrozen.", "success");
+        await loadData();
+      } catch (e) { showToast("Unfreeze failed: " + (e.message || e), "error"); }
+    });
+
+    /* ---------- demo agent ---------- */
+    function setDemoBusy(b) {
+      [els.demoNormal, els.demoOverspend, els.demoPrompt, els.demoRequest].forEach(x => { if (x) x.disabled = b; });
+    }
+
+    function showDemo(kind, title, reason, tech, txHash) {
+      const el = els.demoResult;
+      const isOk = kind === "ok";
+      el.className = "result-card result-" + kind + " show";
+      const icon = isOk
+        ? '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+      const txHtml = txHash ? ` <a class="item-tx" href="${Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : "#"}${txHash}" target="_blank" rel="noopener">view tx</a>` : "";
+      el.innerHTML = `
+        <div class="result-head">
+          <div class="result-icon">${icon}</div>
+          <div class="result-title">${title}</div>
+        </div>
+        <div class="result-reason">${reason}${txHtml}</div>
+        ${tech ? `<div class="result-tech">${tech}</div>` : ""}
+      `;
+    }
+    els.demoResult.style.display = "none";
+
+    async function runDemo(kind) {
+      if (!agentContract) { showToast("Demo agent key not available", "error"); return; }
+      setDemoBusy(true);
+      try {
+        if (kind === "normal") {
+          setDemoStep(1);
+          const amount = ethers.parseEther("0.001");
+          try { await staticCall(agentContract, "agentPay", ETH, config.merchant, amount, "normal purchase"); }
+          catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "BLOCKED BY FIREWALL", "The firewall blocked this payment: " + friendlyError(name), name ? "(" + name + ")" : "");
+            await loadData(); return;
+          }
+          const tx = await agentContract.agentPay(ETH, config.merchant, amount, "normal purchase");
+          showToast("Sending normal purchase&hellip;", "success");
+          await tx.wait();
+          showDemo("ok", "ALLOWED", "0.001 ETH sent to the merchant. Within the per-tx cap and daily budget.", null, tx.hash);
+        } else if (kind === "overspend") {
+          setDemoStep(2);
+          const amount = ethers.parseEther("0.1");
+          try {
+            await staticCall(agentContract, "agentPay", ETH, config.merchant, amount, "overspend");
+            showDemo("ok", "ALLOWED", "No revert simulated. Sending.", "");
+            const tx = await agentContract.agentPay(ETH, config.merchant, amount, "overspend");
+            await tx.wait();
+            showDemo("ok", "ALLOWED", "Transaction sent.", null, tx.hash);
+          } catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "BLOCKED BY FIREWALL", "Over the per-transaction limit. The agent cannot spend more than 0.002 ETH in one transaction.", name ? "(" + name + ")" : "");
+          }
+        } else if (kind === "prompt") {
+          setDemoStep(3);
+          const amount = ethers.parseEther("1.0");
+          try {
+            await staticCall(agentContract, "agentPay", ETH, config.attacker, amount, "prompt injection");
+            showDemo("ok", "ALLOWED", "No revert simulated. Sending.", "");
+            const tx = await agentContract.agentPay(ETH, config.attacker, amount, "prompt injection");
+            await tx.wait();
+            showDemo("ok", "ALLOWED", "Transaction sent.", null, tx.hash);
+          } catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "BLOCKED BY FIREWALL", "The attacker address is not on the agent's allowlist, so the firewall blocked the payment.", name ? "(" + name + ")" : "");
+          }
+        } else if (kind === "request") {
+          setDemoStep(4);
+          const amount = ethers.parseEther("0.05");
+          try {
+            await staticCall(agentContract, "requestPayment", ETH, config.merchant, amount, "large invoice");
+          } catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "REQUEST BLOCKED", friendlyError(name), name ? "(" + name + ")" : "");
+            await loadData(); return;
+          }
+          const tx = await agentContract.requestPayment(ETH, config.merchant, amount, "large invoice");
+          showToast("Creating request&hellip;", "success");
+          await tx.wait();
+          showDemo("ok", "REQUEST QUEUED", "Large payment created as a pending request awaiting owner approval. No funds moved yet.", null, tx.hash);
+        }
+        await loadData();
+      } catch (e) {
+        console.error("demo", e);
+        const { name } = errorName(e);
+        showDemo("bad", "ERROR", name ? friendlyError(name) + " (" + name + ")" : (e.message || String(e)), "");
+      } finally {
+        setDemoBusy(false);
+      }
+    }
+    function setDemoStep(n) {
+      Object.entries(els.demoSteps).forEach(([k, el]) => {
+        el.className = "demo-step" + (Number(k) === n ? " active" : Number(k) < n ? " done" : "");
+      });
+    }
+    els.demoNormal.addEventListener("click", () => runDemo("normal"));
+    els.demoOverspend.addEventListener("click", () => runDemo("overspend"));
+    els.demoPrompt.addEventListener("click", () => runDemo("prompt"));
+    els.demoRequest.addEventListener("click", () => runDemo("request"));
+
+    /* ---------- toast ---------- */
+    function showToast(msg, type) {
+      const t = els.toast;
+      t.textContent = msg;
+      t.className = "toast " + (type === "error" ? "error" : "success") + " show";
+      setTimeout(() => t.classList.remove("show"), 2500);
+    }
+
+    /* ---------- copy ---------- */
+    els.btnCopy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(config.agentPay);
+        showToast("Address copied", "success");
+      } catch { /* ignore */ }
+    });
+
+    /* ---------- refresh ---------- */
+    els.btnRefresh.addEventListener("click", loadData);
+
+    /* ---------- init ---------- */
+    loadConfig().then(loadData).catch(e => { console.error("init", e); showToast("Failed to load deployment: " + (e.message || e), "error"); });
+  </script>
+</body>
+</html>

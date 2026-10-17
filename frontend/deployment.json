@@ -1,0 +1,25 @@
+{
+  "chainId": 11155111,
+  "network": "sepolia",
+  "rpc": "https://ethereum-sepolia-rpc.publicnode.com",
+  "agentPay": "0xF24b16e7B4Aac61EeBBEa6BAb9817f35de2C7814",
+  "usdc": "0x5755Be7c5f4E0E13f1fd77d375402902DEA322Ec",
+  "owner": "0x794f5498220Bb3514922Cb50bEC75BD502D09b59",
+  "guardian": "0xA4512bCE511Fd064359E8f22CE071e648AAbf7b3",
+  "agent": "0x3C031cDCb92e25b61075b58b50b87Cc04F376Bc0",
+  "merchant": "0xc9E934ABf2b76987a818F15ec64B50D34b9A28C0",
+  "attacker": "0xaCBd5A9F9e58d73F8aFa815b805051FF80CF8036",
+  "changeDelay": 120,
+  "policies": {
+    "ETH": {
+      "perTxCap": "2000000000000000",
+      "dailyBudget": "10000000000000000"
+    },
+    "USDC": {
+      "perTxCap": "10000000",
+      "dailyBudget": "50000000"
+    }
+  },
+  "demoAgentKey_TESTNET_ONLY": "0x5837254f1ff09c786c01e30635405ad21c7e34a912f0e404e40f916010426f9f",
+  "deployBlock": null
+}
