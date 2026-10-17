@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.local
+demo-keys.json
+artifacts
+cache
+typechain-types
+coverage
+coverage.json
+
+# Log and output files
+*.log
+*.out
+coverage.out
