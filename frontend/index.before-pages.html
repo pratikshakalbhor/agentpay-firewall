@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgentPay Firewall &mdash; On-chain Spending Limits for AI Agents</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230B0F1A' rx='8'/%3E%3Cpath d='M16 4 L28 12 L16 20 L4 12 Z' fill='%234F7CFF'/%3E%3Ccircle cx='16' cy='12' r='3' fill='%23E6EAF2'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0B0F1A;
+    --surface: #111827;
+    --surface-2: #172033;
+    --border: #1F2A44;
+    --text: #E6EAF2;
+    --muted: #8B97B3;
+    --primary: #4F7CFF;
+    --primary-hover: #3a68e8;
+    --success: #22C55E;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(2, 6, 23, 0.35);
+    --shadow-sm: 0 1px 3px rgba(2, 6, 23, 0.2);
+    --transition: 150ms ease;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background var(--transition), opacity var(--transition), transform var(--transition);
+  }
+  button:active { transform: translateY(1px); }
+  button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(11, 15, 26, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--primary), #3a68e8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 14px rgba(79, 124, 255, 0.35);
+  }
+  .logo-mark svg { width: 18px; height: 18px; fill: #fff; }
+  .logo-text { letter-spacing: -0.4px; }
+  .network-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #14213d;
+    border: 1px solid var(--border);
+    color: #9fb3d8;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+  }
+  .network-badge.sepolia { border-color: var(--primary); color: var(--primary); background: #162a4f; }
+  .vault-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .vault-chip .addr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    color: var(--text);
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .btn-copy {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-copy svg { width: 16px; height: 16px; fill: var(--muted); }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+  }
+  .status-pill.active {
+    background: #143228;
+    color: var(--success);
+    border: 1px solid #1e5a3d;
+  }
+  .status-pill.frozen {
+    background: #3c1414;
+    color: var(--danger);
+    border: 1px solid #7a2323;
+  }
+  .pill-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .pill-dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .pill-dot.frozen { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+  /* ---------- Wallet bar ---------- */
+  .wallet-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .wallet-bar .addr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    color: var(--text);
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .wallet-bar .balance { color: var(--muted); margin-left: auto; }
+  .wallet-bar .balance .tabular { color: var(--text); font-weight: 700; }
+  .wallet-bar .role-badge {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-left: 8px;
+  }
+  .role-owner { background: #1e5a3d; color: var(--success); }
+  .role-guardian { background: #5b3a0e; color: var(--warning); }
+  .role-agent { background: #1e4a7a; color: var(--primary); }
+  .role-viewer { background: #374151; color: var(--muted); }
+
+  /* ---------- Page shell ---------- */
+  .page { max-width: 1200px; margin: 0 auto; padding: 28px 24px 48px; }
+  .section { margin-bottom: 28px; }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .hero p {
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 16px;
+    max-width: 700px;
+    line-height: 1.6;
+  }
+  .steps { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .step .num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    letter-spacing: -0.2px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+  /* ---------- Stat tiles ---------- */
+  .stat {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 150px;
+  }
+  .stat .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .stat .stat-value { font-size: 19px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat .stat-sub { font-size: 12px; color: var(--muted); margin-top: auto; }
+  .progress-wrap { margin-top: 10px; height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
+  .progress-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease, background-color 0.3s ease; }
+  .progress-bar.ok { background: var(--success); }
+  .progress-bar.warn { background: var(--warning); }
+  .progress-bar.danger { background: var(--danger); }
+
+  /* ---------- Buttons ---------- */
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-success { background: var(--success); color: var(--ink); }
+  .btn-success:hover:not(:disabled) { background: #3ede6b; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: #dc2626; }
+  .btn-warning { background: var(--warning); color: var(--ink); }
+  .btn-warning:hover:not(:disabled) { background: #fbbf24; }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-loading { position: relative; color: transparent !important; }
+  .btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Result card ---------- */
+  .result-card {
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 14px;
+    display: none;
+    animation: fadeIn var(--transition) ease;
+  }
+  .result-card.show { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .result-ok { background: #12331e; border: 1px solid #1e5a3d; color: #bef2bb; }
+  .result-bad { background: #3a1212; border: 1px solid #7a2323; color: #fecaca; }
+  .result-pending { background: #2a2211; border: 1px solid #5b3a0e; color: #fed7aa; }
+  .result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .result-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .result-ok .result-icon { background: #1e5a3d; }
+  .result-bad .result-icon { background: #7a2323; }
+  .result-pending .result-icon { background: #5b3a0e; }
+  .result-title { font-size: 16px; font-weight: 800; letter-spacing: -0.4px; }
+  .result-ok .result-title { color: var(--success); }
+  .result-bad .result-title { color: var(--danger); }
+  .result-pending .result-title { color: var(--warning); }
+  .result-reason { font-size: 14px; color: inherit; opacity: 0.9; margin-bottom: 8px; line-height: 1.5; }
+  .result-tech { font-size: 11px; font-family: ui-monospace, monospace; color: var(--muted); background: #0b1020; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; display: inline-block; }
+  .result-tx { margin-top: 8px; font-size: 11px; }
+
+  /* ---------- Demo panel ---------- */
+  .demo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #2a1f0e;
+    border: 1px solid #5b3a0e;
+    color: var(--warning);
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  /* ---------- Owner controls ---------- */
+  .owner-locked {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--muted);
+  }
+  .owner-locked .lock-icon { width: 48px; height: 48px; margin: 0 auto 12px; opacity: 0.5; }
+  .owner-actions { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .owner-actions .btn { flex: 1; min-width: 130px; }
+
+  /* ---------- Pending requests ---------- */
+  .req-list { display: flex; flex-direction: column; gap: 8px; }
+  .req-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .req-info { flex: 1; min-width: 0; }
+  .req-id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+  .req-amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .req-reason { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .req-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .req-actions .btn { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
+
+  /* ---------- Live activity ---------- */
+  .feed-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .timeline { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); overflow: hidden; display: flex; flex-direction: column; }
+  .timeline-empty { padding: 32px 20px; text-align: center; color: var(--muted); }
+  .timeline-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #101626;
+  }
+  .timeline-item:last-child { border-bottom: none; }
+  .item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .item-dot.payment { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .item-dot.request { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+  .item-dot.freeze { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .item-content { flex: 1; min-width: 0; }
+  .item-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .item-meta { font-size: 11.5px; color: var(--muted); }
+  .item-tx { font-size: 11px; color: var(--primary); text-decoration: none; margin-left: 8px; }
+  .item-tx:hover { text-decoration: underline; }
+  .skeleton { background: linear-gradient(90deg, #101626 25%, #1a2136 50%, #101626 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; height: 16px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .skeleton-text { height: 14px; border-radius: 4px; margin-bottom: 6px; }
+
+  /* ---------- Contract panel ---------- */
+  .contract-panel { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .contract-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .contract-kv { display: flex; align-items: baseline; gap: 8px; }
+  .contract-kv .k { color: var(--muted); font-size: 12px; }
+  .contract-kv .v { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text); word-break: break-all; }
+  .collapsible { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .collapsible-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    text-align: left;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .collapsible-content { display: none; padding: 12px 0; font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); background: #0b1020; border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; }
+  .collapsible-content.open { display: block; }
+
+  /* ---------- Before / After ---------- */
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ba-card {
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .ba-before { background: #2d1212; border: 1px solid #5b2323; }
+  .ba-after { background: #12331e; border: 1px solid #1e5a3d; }
+  .ba-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .ba-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ba-before .ba-icon { background: #7a2323; }
+  .ba-after .ba-icon { background: #1e5a3d; }
+  .ba-title { font-size: 15px; font-weight: 800; }
+  .ba-before .ba-title { color: #fca5a5; }
+  .ba-after .ba-title { color: #bef2bb; }
+  .ba-desc { font-size: 13px; color: #c3c9d8; margin-bottom: 16px; line-height: 1.55; }
+  .ba-result {
+    margin-top: auto;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+  }
+  .ba-before .ba-result { background: #5b2323; color: #fca5a5; border: 1px solid #913434; }
+  .ba-after .ba-result { background: #1e5a3d; color: #bef2bb; border: 1px solid #2d6a4f; }
+
+  /* ---------- Hero title + stepper states ---------- */
+  .hero-title { font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.2; margin-bottom: 10px; }
+  .step { transition: background var(--transition), border-color var(--transition), color var(--transition); }
+  .step.active { background: #162a4f; border-color: var(--primary); color: var(--text); }
+  .step.active .num { background: var(--primary); color: #fff; }
+  .step.done { background: #12331e; border-color: #1e5a3d; color: var(--success); }
+  .step.done .num { background: #1e5a3d; color: var(--success); }
+
+  /* ---------- How to demo ---------- */
+  .collapsible-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .collapsible-btn svg { transition: transform var(--transition); }
+  .howto-content { display: none; padding-top: 14px; }
+  .howto-content.open { display: block; }
+  .howto-list { list-style: none; margin: 0; padding: 0; counter-reset: howto; display: flex; flex-direction: column; gap: 12px; }
+  .howto-list li { counter-increment: howto; display: flex; gap: 10px; align-items: flex-start; }
+  .howto-list li::before { content: counter(howto); width: 22px; height: 22px; border-radius: 50%; background: var(--border); color: var(--text); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .howto-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .howto-sub { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .chip { display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 10px; font-weight: 800; letter-spacing: 0.4px; vertical-align: 1px; }
+  .chip-ok { background: #12331e; color: var(--success); border: 1px solid #1e5a3d; }
+  .chip-bad { background: #3a1212; color: var(--danger); border: 1px solid #7a2323; }
+
+  /* ---------- Rules tiles ---------- */
+  .rules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .rule-tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 6px; min-height: 165px; }
+  .rule-tile .tile-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .rule-tile .tile-value { font-size: 24px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+  .rule-tile .tile-sub { font-size: 12px; color: var(--muted); }
+  .rule-tile .tile-explain { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .rec-area { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .rec-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .rec-yes { background: #12331e; border: 1px solid #1e5a3d; color: #bef2bb; }
+  .rec-no { background: #3a1212; border: 1px solid #7a2323; color: #fecaca; }
+
+  /* ---------- Two columns + action buttons ---------- */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .card-head h3 { margin-bottom: 0; }
+  .action-list { display: flex; flex-direction: column; gap: 10px; }
+  .action-item { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+  .action-item .btn { width: 100%; }
+  .action-desc { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+
+  /* ---------- Result: loading + history ---------- */
+  .result-loading { background: #14213d; border: 1px solid var(--primary); color: #cdd9f5; }
+  .result-loading .result-title { color: var(--primary); }
+  .result-spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid rgba(79,124,255,0.25); border-top-color: var(--primary); animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  .history { margin-top: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+  .history-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 2px; }
+  .history-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #101626; font-size: 12.5px; }
+  .history-item:last-child { border-bottom: none; }
+  .hist-chip { flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: 0.4px; padding: 2px 7px; border-radius: 5px; }
+  .hist-allowed { background: #12331e; color: var(--success); }
+  .hist-blocked, .hist-failed { background: #3a1212; color: var(--danger); }
+  .hist-pending { background: #2a2211; color: var(--warning); }
+  .hist-text { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-time { color: var(--muted); font-size: 11px; flex-shrink: 0; }
+
+  /* ---------- Owner locked + tx lifecycle ---------- */
+  .owner-locked .owner-msg { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .owner-addr { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--primary); }
+  .owner-locked .btn { margin-top: 10px; }
+  .lifecycle { display: flex; flex-direction: column; gap: 6px; }
+  .pend-tx { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #0b1020; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
+  .pend-label { color: var(--muted); font-size: 12px; font-weight: 600; }
+  .pend-status { color: var(--danger); font-size: 11px; font-weight: 700; }
+  .pend-txlink { margin-left: auto; font-size: 11px; color: var(--primary); }
+  .pend-tx.state-ok .pend-label { color: var(--success); }
+  .pend-tx.state-pending .pend-label { color: var(--warning); }
+  .pend-tx.state-fail .pend-label { color: var(--danger); }
+
+  /* ---------- Feed error line ---------- */
+  .feed-error { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid #7a2323; background: #3a1212; color: #fecaca; border-radius: 8px; margin-bottom: 10px; font-size: 13px; }
+  .feed-error.note { border-color: #5b3a0e; background: #2a2211; color: #fed7aa; }
+  .feed-error.note .btn-outline { color: #fed7aa; border-color: #5b3a0e; }
+  .feed-error .grow { flex: 1; min-width: 200px; }
+  .item-dot.blocked { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+  /* ---------- Wallet role hint ---------- */
+  .role-hint { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  /* ---------- Responsive: story layout ---------- */
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } .rules-grid { grid-template-columns: 1fr; } .hero-title { font-size: 24px; } }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(20px);
+    z-index: 1000;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: var(--danger); border-color: #7a2323; }
+  .toast.success { background: var(--success); color: var(--ink); border-color: #1e5a3d; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  footer p { margin: 6px 0; line-height: 1.6; }
+  .footer-links { margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } .ba-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .page { padding: 16px 16px 40px; } .topbar-inner { padding: 12px 16px; } }
+</style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <a class="logo" href="#" aria-label="AgentPay Firewall home">
+        <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M12 2 L20 9 L12 16 L4 9 Z" fill="none" stroke="white" stroke-width="2.5" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg></div>
+        <div class="logo-text">AgentPay Firewall</div>
+      </a>
+      <span class="network-badge" id="netBadge">loading&hellip;</span>
+      <div class="wallet-bar" id="walletBar" style="display:none;">
+        <span class="dot" id="walletDot" style="width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success)"></span>
+        <span class="addr" id="walletAddr">&hellip;</span>
+        <span class="balance"><span class="tabular" id="walletBal">&mdash;</span></span>
+        <span class="role-badge role-viewer" id="walletRole">VIEWER</span>
+        <span class="role-hint" id="roleHint" style="display:none;">Switch account in MetaMask to change role</span>
+        <button class="btn btn-outline btn-sm" id="btnDisconnect" style="margin-left:8px;">Disconnect</button>
+      </div>
+      <span class="status-pill active" id="statusPill"><span class="pill-dot active"></span>ACTIVE</span>
+      <button class="btn btn-primary" id="btnConnect" aria-label="Connect wallet">Connect wallet</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <!-- Hero: the 20-second story -->
+    <div class="hero">
+      <h1 class="hero-title">Let AI agents spend crypto safely.</h1>
+      <p>A smart contract enforces the owner's spending rules on-chain, so a hacked or tricked agent can only ever lose a bounded amount.</p>
+      <div class="steps" id="storyStepper">
+        <div class="step active" id="storyStep1"><span class="num">1</span>Owner sets the rules</div>
+        <div class="step" id="storyStep2"><span class="num">2</span>AI agent spends</div>
+        <div class="step" id="storyStep3"><span class="num">3</span>Firewall blocks the rest</div>
+      </div>
+    </div>
+
+    <!-- How to demo -->
+    <div class="card section" id="howto">
+      <button class="collapsible-btn" id="btnToggleHowto" aria-expanded="true" aria-controls="howtoContent">
+        <span>How to demo &mdash; 4 clicks, ~20 seconds</span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="howto-content open" id="howtoContent">
+        <ol class="howto-list">
+          <li>
+            <div>
+              <div class="howto-title">Normal purchase <span class="chip chip-ok">ALLOWED</span></div>
+              <div class="howto-sub">The agent buys something small (0.001 ETH) from the approved merchant &mdash; the firewall lets it through.</div>
+            </div>
+          </li>
+          <li>
+            <div>
+              <div class="howto-title">Overspend <span class="chip chip-bad">BLOCKED</span></div>
+              <div class="howto-sub">The agent tries to send 0.1 ETH, which is over the per-payment limit &mdash; the contract refuses before any money moves.</div>
+            </div>
+          </li>
+          <li>
+            <div>
+              <div class="howto-title">Prompt injection <span class="chip chip-bad">BLOCKED</span></div>
+              <div class="howto-sub">A tricked agent sends 1 ETH to an unknown address &mdash; not an approved recipient, so it is blocked.</div>
+            </div>
+          </li>
+          <li>
+            <div>
+              <div class="howto-title">Owner freezes the agent <span class="chip chip-bad">BLOCKED</span></div>
+              <div class="howto-sub">Connect the owner wallet, press <strong>Freeze agent</strong>, then run a payment &mdash; the next payment is blocked instantly.</div>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- The rules -->
+    <div class="section">
+      <div class="section-title">The rules (set on-chain by the owner)</div>
+      <div class="rules-grid">
+        <div class="rule-tile">
+          <div class="tile-label">Per-payment limit</div>
+          <div class="tile-value tabular" id="statCap">&mdash;</div>
+          <div class="tile-sub">ETH per single payment</div>
+          <div class="tile-explain">One payment above this amount is refused instantly, no matter who asks.</div>
+        </div>
+        <div class="rule-tile">
+          <div class="tile-label">Daily budget (24h window)</div>
+          <div class="tile-value tabular" id="statBudget">&mdash;</div>
+          <div class="tile-sub">Spent today: <span class="tabular" id="statSpent">&mdash;</span></div>
+          <div class="progress-wrap"><div class="progress-bar ok" id="statProgress"></div></div>
+          <div class="tile-sub" id="statSpentSub">&mdash;</div>
+          <div class="tile-explain">When the budget is used up, payments stop until the 24-hour window resets.</div>
+        </div>
+        <div class="rule-tile">
+          <div class="tile-label">Approved recipients</div>
+          <div class="rec-area" id="recipientsArea">&mdash;</div>
+          <div class="tile-explain">Payments to any other address are refused, even if the agent is tricked into trying.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two columns: agent vs owner -->
+    <div class="section two-col">
+      <!-- LEFT: AI agent -->
+      <div class="card">
+        <div class="card-head">
+          <h3>AI Agent (simulated)</h3>
+          <div class="demo-badge" style="margin-bottom:0;">DEMO ONLY &middot; throwaway testnet key</div>
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">Not a real LLM &mdash; a simulation using the throwaway demo agent key. Each button makes a real on-chain attempt and shows whether the firewall allows or blocks it.</p>
+        <div class="action-list">
+          <div class="action-item">
+            <button class="btn btn-primary" id="demoNormal">Normal purchase &middot; 0.001 ETH &rarr; merchant</button>
+            <div class="action-desc">Simulates an honest agent buying something from the approved merchant.</div>
+          </div>
+          <div class="action-item">
+            <button class="btn btn-danger" id="demoOverspend">Overspend &middot; 0.1 ETH &rarr; merchant</button>
+            <div class="action-desc">Simulates a greedy agent trying to send more than the per-payment limit in one transaction.</div>
+          </div>
+          <div class="action-item">
+            <button class="btn btn-danger" id="demoPrompt">Prompt injection &middot; 1 ETH &rarr; attacker</button>
+            <div class="action-desc">Simulates a tricked agent sending funds to an unknown, unapproved address.</div>
+          </div>
+          <div class="action-item">
+            <button class="btn btn-warning" id="demoRequest">Request large payment &middot; 0.05 ETH</button>
+            <div class="action-desc">Simulates a big invoice: the agent must ask the owner for approval before anything moves.</div>
+          </div>
+        </div>
+        <div id="demoResult" class="result-card"></div>
+        <div id="demoHistory" class="history" style="display:none;"></div>
+      </div>
+
+      <!-- RIGHT: owner controls (always visible) -->
+      <div class="card" id="ownerControls">
+        <div class="card-head"><h3>Owner controls</h3></div>
+
+        <div id="ownerLocked" class="owner-locked">
+          <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <div class="owner-msg" id="ownerLockedMsg">Connect the owner wallet to use these</div>
+          <div style="font-size:12.5px;">Freeze, unfreeze and payment approvals only work from the owner key.</div>
+          <button class="btn btn-primary" id="btnConnectOwner">Connect wallet</button>
+        </div>
+
+        <div id="ownerActive" style="display:none;">
+          <div class="owner-actions">
+            <button class="btn btn-danger" id="btnFreeze">FREEZE AGENT</button>
+            <button class="btn btn-outline" id="btnUnfreeze">UNFREEZE</button>
+          </div>
+          <div class="section-title" style="margin-top:6px;">Pending payment requests</div>
+          <div id="pendingList"></div>
+          <div class="section-title" style="margin-top:14px;">Transaction status</div>
+          <div id="pendingTxPanel" class="lifecycle"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live activity -->
+    <div class="card section">
+      <div class="feed-toolbar">
+        <div class="section-title">Live activity</div>
+        <button class="btn btn-outline btn-sm" id="btnRefresh">Refresh</button>
+        <span style="display:flex;align-items:center;gap:6px; font-size:12px;color:var(--muted);"><span class="live-dot" style="width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:ping 2s infinite"></span>live</span>
+      </div>
+      <div id="feedError" class="feed-error" style="display:none;">
+        <span class="grow" id="feedErrorMsg">Activity feed could not be loaded.</span>
+        <button class="btn btn-outline btn-sm" id="btnFeedRetry">Retry</button>
+      </div>
+      <div id="feedSkeleton" style="display:none;">
+        <div class="skeleton" style="width:60%;"></div>
+        <div class="skeleton-text" style="width:40%;"></div>
+        <div class="skeleton" style="width:45%;"></div>
+        <div class="skeleton-text" style="width:55%;"></div>
+      </div>
+      <div class="timeline" id="feed"></div>
+      <div id="feedEmpty" class="timeline-empty" style="display:none;">
+        <svg viewBox="0 0 24 24" width="32" height="32" style="margin:0 auto 10px; opacity:0.5;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <div>No on-chain activity yet.</div>
+        <div style="font-size:12px; margin-top:4px;">Payments, requests, and freezes appear here.</div>
+      </div>
+    </div>
+
+    <!-- Contract details (technical) -->
+    <div class="card section">
+      <div class="section-title">Contract details</div>
+      <div class="contract-panel">
+        <div class="contract-row">
+          <div class="contract-kv"><span class="k">Address</span><span class="v" id="ctAddr">&hellip;</span><button class="btn-copy" id="btnCopyAddr" title="Copy contract address" aria-label="Copy contract address"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg></button></div>
+          <div class="contract-kv"><span class="k">Chain</span><span class="v" id="ctChain">&hellip;</span></div>
+          <div class="contract-kv"><span class="k">Owner</span><span class="v" id="ctOwner">&hellip;</span></div>
+          <div class="contract-kv"><span class="k">Guardian</span><span class="v" id="ctGuardian">&hellip;</span></div>
+          <div class="contract-kv"><span class="k">Change delay</span><span class="v" id="ctDelay">&hellip;</span></div>
+          <div class="contract-kv"><span class="k">Vault balance</span><span class="v tabular" id="statVault">&hellip;</span></div>
+        </div>
+        <div class="collapsible">
+          <button class="collapsible-btn" id="btnToggleRaw" aria-expanded="false"><span>Raw policy</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="collapsible-content" id="rawPolicy"><pre id="rawPolicyJson">loading&hellip;</pre></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Before / After -->
+    <div class="section">
+      <div class="ba-grid">
+        <div class="ba-card ba-before">
+          <div class="ba-head">
+            <div class="ba-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+            <div class="ba-title">Without AgentPay</div>
+          </div>
+          <div class="ba-desc">Unprotected wallet: one injected command drains everything to any address, with no caps, no budget, no allowlist.</div>
+          <div class="ba-result">Wallet drained</div>
+        </div>
+        <div class="ba-card ba-after">
+          <div class="ba-head">
+            <div class="ba-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 17V7l-2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="ba-title">With AgentPay</div>
+          </div>
+          <div class="ba-desc">The same injected command is blocked on-chain: recipient not approved, per-tx cap, daily budget enforced.</div>
+          <div class="ba-result">Attacker gets 0 ETH</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="section">
+      <p><strong>Honest limits:</strong> AgentPay limits damage from a misbehaving or stolen AGENT key. It does not protect against a compromised OWNER key (except guardian + delay on loosening changes). ETH demo only. The AI agent is simulated, not a real LLM.</p>
+      <div class="footer-links">
+        <a id="linkEtherscan" target="_blank" rel="noopener">View on Etherscan</a>
+        <a href="https://github.com" target="_blank" rel="noopener">GitHub repo</a>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { ethers } from "https://esm.sh/ethers@6.13.4";
+
+    const ETH = "0x0000000000000000000000000000000000000000";
+    const SEPOLIA_CHAIN_ID = "0xAA36A7";
+    const SEPOLIA_CHAIN_NAME = "Ethereum Sepolia";
+
+    /* ---------- elements ---------- */
+    const els = {
+      netBadge: document.getElementById("netBadge"),
+      btnConnect: document.getElementById("btnConnect"),
+      btnDisconnect: document.getElementById("btnDisconnect"),
+      statusPill: document.getElementById("statusPill"),
+      walletBar: document.getElementById("walletBar"),
+      walletDot: document.getElementById("walletDot"),
+      walletAddr: document.getElementById("walletAddr"),
+      walletBal: document.getElementById("walletBal"),
+      walletRole: document.getElementById("walletRole"),
+      roleHint: document.getElementById("roleHint"),
+      statVault: document.getElementById("statVault"),
+      statCap: document.getElementById("statCap"),
+      statBudget: document.getElementById("statBudget"),
+      statSpent: document.getElementById("statSpent"),
+      statSpentSub: document.getElementById("statSpentSub"),
+      statProgress: document.getElementById("statProgress"),
+      ctAddr: document.getElementById("ctAddr"),
+      ctChain: document.getElementById("ctChain"),
+      ctOwner: document.getElementById("ctOwner"),
+      ctGuardian: document.getElementById("ctGuardian"),
+      ctDelay: document.getElementById("ctDelay"),
+      rawPolicyJson: document.getElementById("rawPolicyJson"),
+      btnToggleRaw: document.getElementById("btnToggleRaw"),
+      rawPolicy: document.getElementById("rawPolicy"),
+      recipientsArea: document.getElementById("recipientsArea"),
+      ownerControls: document.getElementById("ownerControls"),
+      ownerLocked: document.getElementById("ownerLocked"),
+      ownerLockedMsg: document.getElementById("ownerLockedMsg"),
+      btnConnectOwner: document.getElementById("btnConnectOwner"),
+      ownerActive: document.getElementById("ownerActive"),
+      btnFreeze: document.getElementById("btnFreeze"),
+      btnUnfreeze: document.getElementById("btnUnfreeze"),
+      pendingList: document.getElementById("pendingList"),
+      pendingTxPanel: document.getElementById("pendingTxPanel"),
+      demoResult: document.getElementById("demoResult"),
+      demoHistory: document.getElementById("demoHistory"),
+      demoNormal: document.getElementById("demoNormal"),
+      demoOverspend: document.getElementById("demoOverspend"),
+      demoPrompt: document.getElementById("demoPrompt"),
+      demoRequest: document.getElementById("demoRequest"),
+      storyStep1: document.getElementById("storyStep1"),
+      storyStep2: document.getElementById("storyStep2"),
+      storyStep3: document.getElementById("storyStep3"),
+      btnToggleHowto: document.getElementById("btnToggleHowto"),
+      howtoContent: document.getElementById("howtoContent"),
+      feed: document.getElementById("feed"),
+      feedSkeleton: document.getElementById("feedSkeleton"),
+      feedEmpty: document.getElementById("feedEmpty"),
+      feedError: document.getElementById("feedError"),
+      feedErrorMsg: document.getElementById("feedErrorMsg"),
+      btnFeedRetry: document.getElementById("btnFeedRetry"),
+      btnRefresh: document.getElementById("btnRefresh"),
+      btnCopyAddr: document.getElementById("btnCopyAddr"),
+      linkEtherscan: document.getElementById("linkEtherscan"),
+      toast: document.getElementById("toast"),
+    };
+
+    /* ---------- story stepper (hero) ---------- */
+    function setStoryStep(n) {
+      [els.storyStep1, els.storyStep2, els.storyStep3].forEach((el, i) => {
+        if (!el) return;
+        const idx = i + 1;
+        el.className = "step" + (idx === n ? " active" : idx < n ? " done" : "");
+      });
+    }
+
+    /* ---------- config ---------- */
+    // Public Sepolia gateway used ONLY to backfill log ranges the primary RPC has
+    // pruned (publicnode keeps ~10k blocks of logs). All state reads and writes use
+    // config.rpc; if this fallback is unreachable, the feed degrades to a visible note.
+    const LOG_BACKFILL_RPC = "https://sepolia.gateway.tenderly.co";
+    let config, abi, provider, contractRead, contractLogs, signer, agentContract, connectedAddress;
+    let deployBlock = null;
+    let pollInterval = null;
+
+    async function loadConfig() {
+      const [depRes, abiRes] = await Promise.all([
+        fetch("./deployment.json"),
+        fetch("./abi.json"),
+      ]);
+      config = await depRes.json();
+      abi = await abiRes.json();
+      provider = new ethers.JsonRpcProvider(config.rpc);
+      contractRead = new ethers.Contract(config.agentPay, abi, provider);
+      contractLogs = new ethers.Contract(config.agentPay, abi, new ethers.JsonRpcProvider(LOG_BACKFILL_RPC));
+      deployBlock = config.deployBlock || null;
+      if (config.demoAgentKey_TESTNET_ONLY) {
+        agentContract = new ethers.Contract(config.agentPay, abi, new ethers.Wallet(config.demoAgentKey_TESTNET_ONLY, provider));
+      }
+      renderNetwork();
+      els.linkEtherscan.href = Number(config.chainId) === 11155111
+        ? `https://sepolia.etherscan.io/address/${config.agentPay}`
+        : "#";
+      if (Number(config.chainId) !== 11155111) {
+        els.linkEtherscan.style.color = "var(--muted)";
+        els.linkEtherscan.style.textDecoration = "none";
+        els.linkEtherscan.onclick = (e) => e.preventDefault();
+      }
+    }
+
+    function renderNetwork() {
+      const isSepolia = Number(config.chainId) === 11155111;
+      els.netBadge.textContent = isSepolia ? "Ethereum Sepolia" : "Localhost";
+      els.netBadge.className = "network-badge" + (isSepolia ? " sepolia" : "");
+      els.ctChain.textContent = isSepolia ? "Ethereum Sepolia" : "Localhost";
+    }
+
+    function shortAddr(a) {
+      if (!a) return "—";
+      return a.slice(0, 6) + "…" + a.slice(-4);
+    }
+
+    function fmtEther(wei) {
+      if (wei === null || wei === undefined) return "—";
+      return (Number(wei) / 1e18).toFixed(6);
+    }
+
+    /* ---------- connect / disconnect ---------- */
+    async function connectWallet() {
+      if (!window.ethereum) {
+        showToast("MetaMask not installed", "error");
+        return;
+      }
+      try {
+        els.btnConnect.disabled = true;
+        els.btnConnect.textContent = "Connecting…";
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const browserProvider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await browserProvider.getSigner();
+        connectedAddress = await signer.getAddress();
+        signer_ = signer;
+        setWalletUI(connectedAddress);
+        await switchToSepolia(browserProvider);
+        await loadData();
+        startPolling();
+        window.ethereum.on("accountsChanged", (accs) => {
+          connectedAddress = accs[0] || null;
+          if (connectedAddress) setWalletUI(connectedAddress);
+          else { els.walletBar.style.display = "none"; els.btnConnect.style.display = "inline-block"; connectedAddress = null; signer_ = null; checkOwner(); loadData(); }
+        });
+        window.ethereum.on("chainChanged", () => window.location.reload());
+      } catch (e) {
+        els.btnConnect.disabled = false;
+        els.btnConnect.textContent = "Connect wallet";
+        const msg = String(e.message || e);
+        if (String(e.code) === "4001" || /user rejected/i.test(msg)) {
+          showToast("Connection rejected by user", "error");
+        } else {
+          showToast("Connect failed: " + msg, "error");
+        }
+      }
+    }
+    let signer_ = null;
+
+    async function switchToSepolia(browserProvider) {
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: SEPOLIA_CHAIN_ID }] });
+      } catch (err) {
+        if (err.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{ chainId: SEPOLIA_CHAIN_ID, chainName: SEPOLIA_CHAIN_NAME, nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 }, rpcUrls: [config.rpc], blockExplorerUrls: ["https://sepolia.etherscan.io"] }],
+            });
+          } catch (addErr) {
+            console.warn("add chain failed", addErr);
+          }
+        }
+      }
+    }
+
+    els.btnConnect.addEventListener("click", connectWallet);
+    els.btnDisconnect.addEventListener("click", () => {
+      connectedAddress = null;
+      signer_ = null;
+      els.walletBar.style.display = "none";
+      els.btnConnect.style.display = "inline-block";
+      els.btnConnect.textContent = "Connect wallet";
+      els.btnConnect.disabled = false;
+      checkOwner();
+      loadData();
+    });
+
+    function setWalletUI(addr) {
+      els.btnConnect.style.display = "none";
+      els.walletBar.style.display = "flex";
+      els.walletAddr.textContent = shortAddr(addr);
+      els.walletDot.style.background = "#22C55E";
+      checkOwner();
+    }
+
+    function checkOwner() {
+      if (!config) return;
+      const isOwner = connectedAddress && connectedAddress.toLowerCase() === config.owner.toLowerCase();
+      const isGuardian = connectedAddress && connectedAddress.toLowerCase() === config.guardian.toLowerCase();
+      const isAgent = connectedAddress && connectedAddress.toLowerCase() === config.agent.toLowerCase();
+      let role = "VIEWER";
+      if (isOwner) role = "OWNER";
+      else if (isGuardian) role = "GUARDIAN";
+      else if (isAgent) role = "AGENT";
+      els.walletRole.textContent = role;
+      els.walletRole.className = "role-badge role-" + role.toLowerCase();
+      // "Switch account" hint for plain viewers
+      els.roleHint.style.display = connectedAddress && role === "VIEWER" ? "inline" : "none";
+      if (isOwner) {
+        els.ownerLocked.style.display = "none";
+        els.ownerActive.style.display = "block";
+      } else {
+        els.ownerLocked.style.display = "block";
+        els.ownerActive.style.display = "none";
+        els.ownerLockedMsg.innerHTML = `Connect the owner wallet (<span class="owner-addr">${shortAddr(config.owner)}</span>) to use these`;
+        els.btnConnectOwner.textContent = connectedAddress ? "Switch account" : "Connect wallet";
+      }
+    }
+
+    /* owner locked-card button: connect, or open the MetaMask account picker */
+    els.btnConnectOwner.addEventListener("click", async () => {
+      if (!window.ethereum) { showToast("MetaMask not installed", "error"); return; }
+      if (!connectedAddress) { await connectWallet(); return; }
+      try {
+        await window.ethereum.request({ method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] });
+      } catch (e) {
+        if (String(e.code) === "4001" || /reject/i.test(String(e.message || e))) return;
+        try { await window.ethereum.request({ method: "eth_requestAccounts" }); } catch { /* ignore */ }
+      }
+    });
+
+    /* ---------- read helpers ---------- */
+    // eth_call must run FROM the contract caller (e.g. the demo agent wallet),
+    // otherwise agentPay would revert NotAgent and every probe would look blocked.
+    async function staticCall(contract, methodName, ...args) {
+      const data = contract.interface.encodeFunctionData(methodName, args);
+      const from = contract.runner && contract.runner.address ? contract.runner.address : undefined;
+      return await provider.call(from ? { to: contract.target, data, from } : { to: contract.target, data });
+    }
+
+    function extractRevertData(err) {
+      if (!err) return null;
+      const candidates = [err.data, err.error && err.error.data, err.info && err.info.error && err.info.error.data];
+      for (const c of candidates) {
+        if (typeof c === "string" && c.startsWith("0x") && c.length > 10) return c;
+        if (c && typeof c === "object" && typeof c.data === "string" && c.data.startsWith("0x") && c.data.length > 10) return c.data;
+      }
+      const hex = String(err.message || "").match(/0x[0-9a-fA-F]{8,}/);
+      return hex ? hex[0] : null;
+    }
+
+    function errorName(err) {
+      try {
+        const data = extractRevertData(err);
+        if (data) {
+          const desc = contractRead.interface.parseError(data);
+          if (desc) return { name: desc.name, args: desc.args };
+        }
+      } catch { /* ignore */ }
+      return { name: String(err && err.message || err), args: null };
+    }
+
+    function friendlyError(name) {
+      const m = {
+        ExceedsPerTxCap: "over the per-transaction limit",
+        ExceedsDailyBudget: "over the daily budget",
+        NotAllowlisted: "recipient is not approved",
+        Frozen: "agent or vault is frozen",
+        NotAgent: "caller is not an active agent",
+        ZeroAmount: "zero amount",
+        InsufficientVaultBalance: "vault has insufficient balance",
+        RequestExpired: "request expired",
+        RequestNotPending: "no pending request",
+        ProposalNotReady: "proposal not ready",
+        NotAuthorized: "not authorized",
+        TransferFailed: "transfer failed",
+      };
+      return m[name] || name || "blocked by the firewall";
+    }
+
+    /* ---------- transaction lifecycle ---------- */
+    const pendingTxs = new Map();
+
+    async function sendWithLifecycle(label, fn, onConfirmed) {
+      const id = Math.random().toString(36).slice(2, 9);
+      pendingTxs.set(id, { label, status: "confirming" });
+      renderPendingTx(id, "Waiting for wallet confirmation…", null);
+      try {
+        const tx = await fn();
+        pendingTxs.get(id).hash = tx.hash;
+        renderPendingTx(id, "Pending", tx.hash);
+        const receipt = await tx.wait();
+        pendingTxs.get(id).status = "confirmed";
+        renderPendingTx(id, `Confirmed (block ${receipt.blockNumber})`, tx.hash);
+        if (onConfirmed) await onConfirmed({ hash: tx.hash, blockNumber: receipt.blockNumber });
+        showToast(label + " confirmed.", "success");
+        return receipt;
+      } catch (e) {
+        pendingTxs.get(id).status = "failed";
+        const { name } = errorName(e);
+        renderPendingTx(id, `Failed: ${friendlyError(name)}`, pendingTxs.get(id).hash, name);
+        showToast(label + " failed: " + friendlyError(name), "error");
+        throw e;
+      } finally {
+        // keep the lifecycle row visible long enough for a demo audience
+        setTimeout(() => pendingTxs.delete(id), 15000);
+      }
+    }
+
+    function renderPendingTx(id, status, hash, errorName_) {
+      let el = document.getElementById("pendTx-" + id);
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pendTx-" + id;
+        el.innerHTML = `<div class="pend-label"></div><div class="pend-status"></div><div class="pend-txlink"></div>`;
+        els.pendingTxPanel.appendChild(el);
+      }
+      const state = status.startsWith("Waiting") ? "wait"
+        : status === "Pending" ? "pending"
+        : status.startsWith("Confirmed") ? "ok" : "fail";
+      el.className = "pend-tx state-" + state;
+      el.querySelector(".pend-label").textContent = status;
+      el.querySelector(".pend-status").textContent = errorName_ ? "(" + errorName_ + ")" : "";
+      const linkEl = el.querySelector(".pend-txlink");
+      if (hash) {
+        const base = Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : "#";
+        linkEl.innerHTML = `<a class="item-tx" href="${base}${hash}" target="_blank" rel="noopener">tx</a>`;
+        linkEl.style.display = "inline";
+      } else {
+        linkEl.style.display = "none";
+      }
+    }
+
+    /* ---------- load data ---------- */
+    async function loadData() {
+      try {
+        // status
+        const frozen = await contractRead.globalFrozen();
+        els.statusPill.className = "status-pill " + (frozen ? "frozen" : "active");
+        els.statusPill.innerHTML = `<span class="pill-dot ${frozen ? "frozen" : "active"}"></span>${frozen ? "FROZEN" : "ACTIVE"}`;
+
+        // contract info for panel
+        const [ownerAddr, guardianAddr, delay] = await Promise.all([
+          contractRead.owner(),
+          contractRead.guardian(),
+          contractRead.changeDelay(),
+        ]);
+        els.ctAddr.textContent = shortAddr(config.agentPay);
+        els.ctOwner.textContent = shortAddr(ownerAddr);
+        els.ctGuardian.textContent = shortAddr(guardianAddr);
+        els.ctDelay.textContent = delay + "s";
+        const base = Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/address/" : "#";
+        els.linkEtherscan.href = base + config.agentPay;
+
+        // vault balance
+        const bal = await provider.getBalance(config.agentPay);
+        els.statVault.textContent = fmtEther(bal);
+        els.walletBal.textContent = fmtEther(bal);
+
+        // policy
+        const pol = await contractRead.policies(config.agent, ETH);
+        els.statCap.textContent = fmtEther(pol.perTxCap);
+        els.statBudget.textContent = fmtEther(pol.dailyBudget);
+        els.statSpent.textContent = fmtEther(pol.spent);
+        const pct = Number(pol.dailyBudget) > 0 ? Math.min(100, (Number(pol.spent) / Number(pol.dailyBudget)) * 100) : 0;
+        els.statProgress.style.width = pct + "%";
+        els.statProgress.className = "progress-bar " + (pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok");
+        els.statSpentSub.textContent = pct.toFixed(0) + "% of daily budget used · remaining " + fmtEther(pol.dailyBudget - pol.spent);
+
+        // recipients
+        const mAllowed = await contractRead.allowlist(config.agent, config.merchant);
+        const aAllowed = await contractRead.allowlist(config.agent, config.attacker);
+        document.getElementById("recipientsArea").innerHTML = `
+          <span class="rec-badge ${mAllowed ? "rec-yes" : "rec-no"}">${mAllowed ? "APPROVED" : "BLOCKED"}&nbsp;merchant ${shortAddr(config.merchant)}</span>
+          <span class="rec-badge rec-no">${aAllowed ? "APPROVED" : "BLOCKED"}&nbsp;attacker ${shortAddr(config.attacker)}</span>`;
+
+        // raw policy
+        els.rawPolicyJson.textContent = JSON.stringify({ active: pol.active, perTxCap: pol.perTxCap.toString(), dailyBudget: pol.dailyBudget.toString(), spent: pol.spent.toString(), windowStart: pol.windowStart.toString() }, null, 2);
+
+        // feed + pending
+        await loadFeed();
+        await loadPending();
+        checkOwner();
+      } catch (e) {
+        console.error("loadData", e);
+        showToast("Failed to load data: " + (e.message || e), "error");
+      }
+    }
+
+    /* ---------- recipients badges (styles live in the main stylesheet) ---------- */
+
+    /* ---------- feed ---------- */
+    const FEED_EVENTS = ["PaymentExecuted", "PaymentRequested", "RequestApproved", "AgentFrozen", "GlobalFrozen"];
+    let feedEvents = [];       // last successful on-chain query
+    const sessionItems = [];   // actions performed in this session (shown immediately)
+
+    function feedEventNames() {
+      const abiEvents = new Set((abi || []).filter(e => e.type === "event").map(e => e.name));
+      const available = FEED_EVENTS.filter(n => abiEvents.has(n));
+      const missing = FEED_EVENTS.filter(n => !abiEvents.has(n));
+      if (missing.length) console.info("feed: not in deployed ABI, skipped:", missing.join(", "));
+      return available;
+    }
+
+    async function loadFeed() {
+      els.feedSkeleton.style.display = "block";
+      els.feed.style.display = "none";
+      els.feedEmpty.style.display = "none";
+      const failures = [];
+      let pruned = 0;
+      let backfilled = 0;
+      try {
+        const latest = await provider.getBlockNumber();
+        const fromBlock = deployBlock !== null && deployBlock !== undefined ? Math.max(deployBlock, 0) : Math.max(0, latest - 50000);
+        const toBlock = latest;
+        const chunk = 5000;
+        const eventNames = feedEventNames();
+        const all = [];
+        let cur = fromBlock;
+        while (cur <= toBlock) {
+          const end = Math.min(cur + chunk - 1, toBlock);
+          for (const evName of eventNames) {
+            try {
+              const filter = contractRead.filters[evName]();
+              const logs = await contractRead.queryFilter(filter, cur, end);
+              all.push(...logs);
+            } catch (e) {
+              if (isPrunedHistory(e)) {
+                // primary RPC pruned this range: try the archival gateway before giving up
+                try {
+                  const logs = await contractLogs.queryFilter(contractLogs.filters[evName](), cur, end);
+                  all.push(...logs);
+                  backfilled++;
+                } catch { pruned++; }
+              } else {
+                failures.push(`${evName} ${cur}-${end}: ${e.message || e}`);
+              }
+            }
+          }
+          cur = end + 1;
+        }
+        feedEvents = all.sort((a, b) => (b.blockNumber || 0) - (a.blockNumber || 0));
+      } catch (e) {
+        failures.push(e.message || String(e));
+      } finally {
+        els.feedSkeleton.style.display = "none";
+      }
+      if (failures.length) {
+        els.feedError.className = "feed-error";
+        els.feedErrorMsg.textContent = `Could not load all activity (${failures.length} query failed). ${failures[0]}`;
+        els.feedError.style.display = "flex";
+      } else if (pruned > 0) {
+        els.feedError.className = "feed-error note";
+        els.feedErrorMsg.textContent = backfilled > 0
+          ? `Some older ranges are unavailable even from the fallback RPC (${pruned} skipped, ${backfilled} loaded from fallback) — showing the activity that loaded.`
+          : `Some activity ranges are unavailable from this RPC right now (${pruned} queries skipped) — press Retry, or act now to add live activity below.`;
+        els.feedError.style.display = "flex";
+      } else {
+        els.feedError.style.display = "none";
+      }
+      renderFeed(mergeFeed());
+    }
+
+    /* public nodes prune old log history (e.g. code 4444 "pruned history unavailable") */
+    function isPrunedHistory(e) {
+      const text = [e && e.message, e && e.error && e.error.message, e && e.info && e.info.error && e.info.error.message]
+        .filter(Boolean).join(" ");
+      return /pruned history|history unavailable|missing trie|unknown block/i.test(text);
+    }
+
+    els.btnFeedRetry.addEventListener("click", () => loadFeed());
+
+    /* append a session action immediately, without waiting for the log query */
+    function pushSessionActivity(label, dot, txHash) {
+      sessionItems.unshift({ label, dot, txHash: txHash || null, blockNumber: null, session: true });
+      if (sessionItems.length > 20) sessionItems.pop();
+      renderFeed(mergeFeed());
+    }
+
+    function mergeFeed() {
+      const hashes = new Set(sessionItems.map(s => s.txHash).filter(Boolean));
+      const queried = feedEvents.filter(ev => !hashes.has(ev.transactionHash)).map(eventToItem);
+      return [...sessionItems, ...queried].slice(0, 60);
+    }
+
+    function eventToItem(ev) {
+      const args = ev.args || {};
+      let label = ev.eventName, dot = "payment";
+      if (ev.eventName === "PaymentExecuted") {
+        label = `Payment executed &rarr; ${shortAddr(args.to)} &middot; ${fmtEther(args.amount)}`;
+        dot = "payment";
+      } else if (ev.eventName === "PaymentRequested") {
+        label = `Payment queued &rarr; ${shortAddr(args.to)} &middot; ${fmtEther(args.amount)} (id #${args.id})`;
+        dot = "request";
+      } else if (ev.eventName === "RequestApproved") {
+        label = `Request #${args.id} approved by owner &rarr; ${shortAddr(args.to)} &middot; ${fmtEther(args.amount)}`;
+        dot = "payment";
+      } else if (ev.eventName === "AgentFrozen") {
+        label = args.frozen ? `Agent frozen: ${shortAddr(args.agent)}` : `Agent unfrozen: ${shortAddr(args.agent)}`;
+        dot = "freeze";
+      } else if (ev.eventName === "GlobalFrozen") {
+        label = args.frozen ? "Vault frozen globally" : "Vault unfrozen globally";
+        dot = "freeze";
+      }
+      return { label, dot, blockNumber: ev.blockNumber, txHash: ev.transactionHash || null, session: false };
+    }
+
+    function renderFeed(items) {
+      els.feed.innerHTML = "";
+      if (!items || items.length === 0) {
+        els.feed.style.display = "flex";
+        els.feedEmpty.style.display = "block";
+        return;
+      }
+      els.feedEmpty.style.display = "none";
+      els.feed.style.display = "flex";
+      const base = Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : null;
+      for (const it of items) {
+        const div = document.createElement("div");
+        div.className = "timeline-item";
+        let txLink = "";
+        if (base && it.txHash) {
+          txLink = `<a class="item-tx" href="${base}${it.txHash}" target="_blank" rel="noopener">tx</a>`;
+        }
+        const where = it.session ? "this session" : `block ${it.blockNumber}`;
+        div.innerHTML = `
+          <span class="item-dot ${it.dot}"></span>
+          <div class="item-content">
+            <div class="item-title">${it.label}</div>
+            <div class="item-meta">${where} ${txLink}</div>
+          </div>
+        `;
+        els.feed.appendChild(div);
+      }
+    }
+
+    /* ---------- pending ---------- */
+    async function loadPending() {
+      els.pendingList.innerHTML = "";
+      try {
+        const count = await contractRead.requestCount();
+        let hasPending = false;
+        for (let i = 0n; i < count; i++) {
+          const r = await contractRead.requests(i);
+          if (!r.executed && !r.cancelled) {
+            hasPending = true;
+            const div = document.createElement("div");
+            div.className = "req-item";
+            div.innerHTML = `
+              <div class="req-info">
+                <div class="req-id">request #${r.id}</div>
+                <div class="req-amt">${fmtEther(r.amount)} &rarr; ${shortAddr(r.to)}</div>
+                <div class="req-reason">${r.reason || "&mdash;"}</div>
+              </div>
+              <div class="req-actions">
+                <button class="btn btn-outline btn-sm" data-id="${i}" data-action="approve">Approve</button>
+                <button class="btn btn-danger btn-sm" data-id="${i}" data-action="reject">Reject</button>
+              </div>
+            `;
+            els.pendingList.appendChild(div);
+          }
+        }
+        if (!hasPending) {
+          els.pendingList.innerHTML = '<div style="padding:10px; color:var(--muted); font-size:13px;">No pending requests.</div>';
+        }
+        els.pendingList.querySelectorAll("button").forEach(b => {
+          b.addEventListener("click", (e) => {
+            const id = BigInt(e.currentTarget.dataset.id);
+            const action = e.currentTarget.dataset.action;
+            handleOwnerAction(id, action);
+          });
+        });
+      } catch (e) {
+        console.error("pending", e);
+        els.pendingList.innerHTML = '<div style="padding:10px; color:var(--muted); font-size:13px;">Unable to load requests.</div>';
+      }
+    }
+
+    /* ---------- owner actions ---------- */
+    async function handleOwnerAction(id, action) {
+      if (!signer_) { showToast("Connect the owner wallet first", "error"); return; }
+      const contract = contractRead.connect(signer_);
+      const isApprove = action === "approve";
+      try {
+        await sendWithLifecycle(
+          action + " request",
+          () => contract[isApprove ? "approveRequest" : "rejectRequest"](id),
+          (receipt) => {
+            loadData();
+            pushSessionActivity(
+              isApprove ? `Request #${id} approved &mdash; payment sent by owner` : `Request #${id} rejected by owner`,
+              isApprove ? "payment" : "request",
+              receipt.hash
+            );
+          }
+        );
+      } catch (e) {
+        const { name } = errorName(e);
+        showToast("Failed: " + (name || e.message || e), "error");
+      }
+    }
+    els.btnFreeze.addEventListener("click", async () => {
+      if (!signer_) { showToast("Connect the owner wallet first", "error"); return; }
+      try {
+        await sendWithLifecycle(
+          "Freeze agent",
+          () => contractRead.connect(signer_).freezeAgent(config.agent),
+          (receipt) => {
+            loadData();
+            pushSessionActivity("Agent frozen by owner &mdash; all its payments now blocked", "freeze", receipt.hash);
+            setStoryStep(3); // step 3: the firewall blocks the rest
+          }
+        );
+      } catch (e) { showToast("Freeze failed: " + (e.message || e), "error"); }
+    });
+    els.btnUnfreeze.addEventListener("click", async () => {
+      if (!signer_) { showToast("Connect the owner wallet first", "error"); return; }
+      try {
+        await sendWithLifecycle(
+          "Unfreeze agent",
+          () => contractRead.connect(signer_).unfreezeAgent(config.agent),
+          (receipt) => {
+            loadData();
+            pushSessionActivity("Agent unfrozen by owner", "freeze", receipt.hash);
+          }
+        );
+      } catch (e) { showToast("Unfreeze failed: " + (e.message || e), "error"); }
+    });
+
+    /* ---------- demo agent ---------- */
+    function setDemoBusy(b) {
+      [els.demoNormal, els.demoOverspend, els.demoPrompt, els.demoRequest].forEach(x => { if (x) x.disabled = b; });
+    }
+
+    /* ---------- result history (last 5) ---------- */
+    const demoHistory = [];
+    function recordHistory(status, text, txHash) {
+      demoHistory.unshift({ status, text: String(text || ""), txHash: txHash || null, time: new Date().toLocaleTimeString() });
+      if (demoHistory.length > 5) demoHistory.pop();
+      renderHistory();
+    }
+    function renderHistory() {
+      const el = els.demoHistory;
+      if (!demoHistory.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+      const base = Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : "#";
+      el.style.display = "block";
+      el.innerHTML = `<div class="history-title">Last ${demoHistory.length} result${demoHistory.length > 1 ? "s" : ""}</div>` +
+        demoHistory.map(h => `
+          <div class="history-item">
+            <span class="hist-chip hist-${h.status.toLowerCase()}">${h.status}</span>
+            <span class="hist-text">${h.text}</span>
+            <span class="hist-time">${h.time}</span>
+            ${h.txHash ? `<a class="item-tx" href="${base}${h.txHash}" target="_blank" rel="noopener">tx</a>` : ""}
+          </div>`).join("");
+    }
+
+    function showDemo(kind, title, reason, tech, txHash) {
+      const el = els.demoResult;
+      el.style.display = "block";
+      if (kind === "loading") {
+        el.className = "result-card result-loading show";
+        el.innerHTML = `
+          <div class="result-head">
+            <div class="result-spinner"></div>
+            <div class="result-title">Checking with the firewall&hellip;</div>
+          </div>
+          <div class="result-reason">${reason || "The simulated agent is calling the contract&hellip;"}</div>`;
+        return;
+      }
+      const isOk = kind === "ok";
+      const isPending = kind === "pending";
+      el.className = "result-card result-" + (isOk ? "ok" : isPending ? "pending" : "bad") + " show";
+      const icon = isOk
+        ? '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : isPending
+        ? '<svg viewBox="0 0 24 24"><path d="M12 2v20M12 2l-10 5 10 5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+      const txHtml = txHash ? ` <a class="item-tx" href="${Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : "#"}${txHash}" target="_blank" rel="noopener">view tx</a>` : "";
+      el.innerHTML = `
+        <div class="result-head">
+          <div class="result-icon">${icon}</div>
+          <div class="result-title">${title}</div>
+        </div>
+        <div class="result-reason">${reason}${txHtml}</div>
+        ${tech ? `<div class="result-tech">${tech}</div>` : ""}
+      `;
+      // short history under the result card
+      const status = isOk ? "ALLOWED" : isPending ? "PENDING" : (title === "ERROR" ? "FAILED" : "BLOCKED");
+      recordHistory(status, reason, txHash);
+      if (status === "BLOCKED") setStoryStep(3); // step 3: the firewall blocks the rest
+    }
+
+    async function runDemo(kind) {
+      if (!agentContract) { showToast("Demo agent key not available", "error"); return; }
+      setDemoBusy(true);
+      setStoryStep(2); // step 2: the AI agent spends
+      showDemo("loading", "", "The simulated agent is calling the contract&hellip;");
+      try {
+        if (kind === "normal") {
+          const amount = ethers.parseEther("0.001");
+          try { await staticCall(agentContract, "agentPay", ETH, config.merchant, amount, "normal purchase"); }
+          catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "BLOCKED BY FIREWALL", "The firewall blocked this payment: " + friendlyError(name), name ? "(" + name + ")" : "");
+            pushSessionActivity("Payment blocked &mdash; " + friendlyError(name), "blocked", null);
+            await loadData(); return;
+          }
+          const tx = await agentContract.agentPay(ETH, config.merchant, amount, "normal purchase");
+          showToast("Sending normal purchase…", "success");
+          await tx.wait();
+          showDemo("ok", "ALLOWED", "0.001 ETH sent to the merchant. Within the per-tx cap and daily budget.", null, tx.hash);
+          pushSessionActivity("Normal purchase allowed &rarr; merchant &middot; 0.001 ETH", "payment", tx.hash);
+        } else if (kind === "overspend") {
+          const amount = ethers.parseEther("0.1");
+          try {
+            await staticCall(agentContract, "agentPay", ETH, config.merchant, amount, "overspend");
+          } catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "BLOCKED BY FIREWALL", "Over the per-transaction limit. The agent cannot spend more than 0.002 ETH in one transaction.", name ? "(" + name + ")" : "");
+            pushSessionActivity("Payment blocked &mdash; over the per-transaction limit (0.1 ETH tried)", "blocked", null);
+            await loadData(); return;
+          }
+          const tx = await agentContract.agentPay(ETH, config.merchant, amount, "overspend");
+          await tx.wait();
+          showDemo("ok", "ALLOWED", "0.1 ETH sent — the per-payment limit did not stop this payment.", null, tx.hash);
+          pushSessionActivity("Overspend allowed &rarr; merchant &middot; 0.1 ETH", "payment", tx.hash);
+        } else if (kind === "prompt") {
+          const amount = ethers.parseEther("1.0");
+          try {
+            await staticCall(agentContract, "agentPay", ETH, config.attacker, amount, "prompt injection");
+          } catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "BLOCKED BY FIREWALL", "The attacker address is not on the agent's allowlist, so the firewall blocked the payment.", name ? "(" + name + ")" : "");
+            pushSessionActivity("Payment blocked &mdash; unknown address not approved (1 ETH to attacker)", "blocked", null);
+            await loadData(); return;
+          }
+          const tx = await agentContract.agentPay(ETH, config.attacker, amount, "prompt injection");
+          await tx.wait();
+          showDemo("ok", "ALLOWED", "1 ETH sent to an unapproved address — the allowlist did not stop this payment.", null, tx.hash);
+          pushSessionActivity("Prompt-injected payment allowed &rarr; attacker &middot; 1 ETH", "payment", tx.hash);
+        } else if (kind === "request") {
+          const amount = ethers.parseEther("0.05");
+          try {
+            await staticCall(agentContract, "requestPayment", ETH, config.merchant, amount, "large invoice");
+          } catch (e) {
+            const { name } = errorName(e);
+            showDemo("bad", "BLOCKED BY FIREWALL", "The firewall refused the request: " + friendlyError(name), name ? "(" + name + ")" : "");
+            pushSessionActivity("Payment request blocked &mdash; " + friendlyError(name), "blocked", null);
+            await loadData(); return;
+          }
+          const tx = await agentContract.requestPayment(ETH, config.merchant, amount, "large invoice");
+          showToast("Creating request…", "success");
+          await tx.wait();
+          showDemo("pending", "PENDING", "Large payment created as a pending request awaiting owner approval. No funds moved yet.", null, tx.hash);
+          pushSessionActivity("Large payment request queued &middot; 0.05 ETH (needs owner approval)", "request", tx.hash);
+        }
+        await loadData();
+      } catch (e) {
+        console.error("demo", e);
+        const { name } = errorName(e);
+        showDemo("bad", "ERROR", name ? friendlyError(name) + " (" + name + ")" : (e.message || String(e)), "");
+      } finally {
+        setDemoBusy(false);
+      }
+    }
+    els.demoNormal.addEventListener("click", () => runDemo("normal"));
+    els.demoOverspend.addEventListener("click", () => runDemo("overspend"));
+    els.demoPrompt.addEventListener("click", () => runDemo("prompt"));
+    els.demoRequest.addEventListener("click", () => runDemo("request"));
+
+    /* ---------- toast ---------- */
+    function showToast(msg, type) {
+      const t = els.toast;
+      t.textContent = msg;
+      t.className = "toast " + (type === "error" ? "error" : "success") + " show";
+      setTimeout(() => t.classList.remove("show"), 2500);
+    }
+
+    /* ---------- copy ---------- */
+    els.btnCopyAddr.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(config.agentPay);
+        showToast("Address copied", "success");
+      } catch { /* ignore */ }
+    });
+
+    /* ---------- collapsible ---------- */
+    els.btnToggleRaw.addEventListener("click", () => {
+      const open = els.rawPolicy.classList.toggle("open");
+      els.btnToggleRaw.setAttribute("aria-expanded", open);
+    });
+    els.btnToggleHowto.addEventListener("click", () => {
+      const open = els.howtoContent.classList.toggle("open");
+      els.btnToggleHowto.setAttribute("aria-expanded", open);
+    });
+
+    /* ---------- refresh ---------- */
+    els.btnRefresh.addEventListener("click", loadData);
+
+    /* ---------- polling ---------- */
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(loadData, 8000);
+    }
+
+    /* ---------- init ---------- */
+    setStoryStep(1);
+    loadConfig().then(loadData).catch(e => { console.error("init", e); showToast("Failed to load deployment: " + (e.message || e), "error"); });
+  </script>
+</body>
+</html>

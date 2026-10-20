@@ -51,8 +51,8 @@ If all checks pass, the contract transfers the funds and emits `PaymentExecuted`
 | **Viewer** | Any address not owner/guardian/agent — no on‑chain rights, UI shows viewer role |
 
 ## Tests
-- 48 Hardhat + chai tests across 7 test files.
-- Tests cover: custom errors, payment limits, per‑tx and daily budget enforcement, request queue/cancel, access control, freeze/unfreeze, proposal queue/execute/cancel, reentrancy resistance, and fuzz invariants.
+- 54 Hardhat + chai tests across 8 test files (including regression tests for the demo's human‑readable revert messages).
+- Tests cover: custom errors, payment limits, per‑tx and daily budget enforcement, request queue/cancel, access control, freeze/unfreeze, proposal queue/execute/cancel, reentrancy resistance, fuzz invariants, and the revert‑message decoder.
 - Run: `npm install && npm run node:local && npm run deploy:local && npm test`
 
 ## How to run locally
@@ -60,15 +60,28 @@ If all checks pass, the contract transfers the funds and emits `PaymentExecuted`
 # 1. Install dependencies
 npm install
 
-# 2. Start a local Hardhat node
+# 2. Start a local Hardhat node (keep this terminal open)
 npm run node:local
 
-# 3. Deploy to the local node
+# 3. Deploy to the local node (new terminal)
 npm run deploy:local
 
 # 4. Run all tests
 npm test
+
+# 5. Run the full before/after demo (fresh deployment each time)
+npm run demo:reset
+npm run demo:all
+
+# 6. Run the simulated AI agent against the vault
+npm run agent:demo
 ```
+Notes:
+- `demo:all` consumes the daily budget, so run `demo:reset` (redeploys) before each demo run.
+- `npm run agent:demo` starts a local node, deploys, and runs `agent/agent.ts`: one allowed
+  payment succeeds, then a prompt‑injected payment to a non‑allowlisted recipient is blocked
+  on‑chain. (The agent is a simulation — no real LLM.)
+- Useful checks: `npm run typecheck` (TypeScript, 0 errors), `npm run coverage`, `npm run gas`.
 
 ## How to run on Sepolia
 ```powershell

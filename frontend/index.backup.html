@@ -21,7 +21,6 @@
     --success: #22C55E;
     --danger: #EF4444;
     --warning: #F59E0B;
-    --ink: #0B0F1A;
     --radius: 12px;
     --shadow: 0 4px 24px rgba(2, 6, 23, 0.35);
     --shadow-sm: 0 1px 3px rgba(2, 6, 23, 0.2);
@@ -159,17 +158,41 @@
   .pill-dot { width: 7px; height: 7px; border-radius: 50%; }
   .pill-dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); }
   .pill-dot.frozen { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
-  .btn-connect {
-    background: var(--primary);
-    color: #fff;
-    padding: 8px 16px;
-  }
-  .btn-connect:hover:not(:disabled) { background: var(--primary-hover); }
-  .btn-connect.connected {
+
+  /* ---------- Wallet bar ---------- */
+  .wallet-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: 10px;
     background: var(--surface-2);
-    color: var(--muted);
     border: 1px solid var(--border);
+    font-size: 13px;
   }
+  .wallet-bar .addr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    color: var(--text);
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .wallet-bar .balance { color: var(--muted); margin-left: auto; }
+  .wallet-bar .balance .tabular { color: var(--text); font-weight: 700; }
+  .wallet-bar .role-badge {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-left: 8px;
+  }
+  .role-owner { background: #1e5a3d; color: var(--success); }
+  .role-guardian { background: #5b3a0e; color: var(--warning); }
+  .role-agent { background: #1e4a7a; color: var(--primary); }
+  .role-viewer { background: #374151; color: var(--muted); }
 
   /* ---------- Page shell ---------- */
   .page { max-width: 1200px; margin: 0 auto; padding: 28px 24px 48px; }
@@ -254,10 +277,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    height: 150px;
   }
   .stat .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
   .stat .stat-value { font-size: 19px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-  .stat .stat-sub { font-size: 12px; color: var(--muted); }
+  .stat .stat-sub { font-size: 12px; color: var(--muted); margin-top: auto; }
   .progress-wrap { margin-top: 10px; height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
   .progress-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease, background-color 0.3s ease; }
   .progress-bar.ok { background: var(--success); }
@@ -316,15 +340,19 @@
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .result-ok { background: #12331e; border: 1px solid #1e5a3d; color: #bef2bb; }
   .result-bad { background: #3a1212; border: 1px solid #7a2323; color: #fecaca; }
+  .result-pending { background: #2a2211; border: 1px solid #5b3a0e; color: #fed7aa; }
   .result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .result-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .result-ok .result-icon { background: #1e5a3d; }
   .result-bad .result-icon { background: #7a2323; }
+  .result-pending .result-icon { background: #5b3a0e; }
   .result-title { font-size: 16px; font-weight: 800; letter-spacing: -0.4px; }
   .result-ok .result-title { color: var(--success); }
   .result-bad .result-title { color: var(--danger); }
+  .result-pending .result-title { color: var(--warning); }
   .result-reason { font-size: 14px; color: inherit; opacity: 0.9; margin-bottom: 8px; line-height: 1.5; }
   .result-tech { font-size: 11px; font-family: ui-monospace, monospace; color: var(--muted); background: #0b1020; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; display: inline-block; }
+  .result-tx { margin-top: 8px; font-size: 11px; }
 
   /* ---------- Demo panel ---------- */
   .demo-badge {
@@ -412,6 +440,30 @@
   @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   .skeleton-text { height: 14px; border-radius: 4px; margin-bottom: 6px; }
 
+  /* ---------- Contract panel ---------- */
+  .contract-panel { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .contract-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .contract-kv { display: flex; align-items: baseline; gap: 8px; }
+  .contract-kv .k { color: var(--muted); font-size: 12px; }
+  .contract-kv .v { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text); word-break: break-all; }
+  .collapsible { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .collapsible-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    text-align: left;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .collapsible-content { display: none; padding: 12px 0; font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); background: #0b1020; border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; }
+  .collapsible-content.open { display: block; }
+
   /* ---------- Before / After ---------- */
   .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .ba-card {
@@ -475,6 +527,7 @@
   footer p { margin: 6px 0; line-height: 1.6; }
   .footer-links { margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
 
+  /* ---------- Responsive ---------- */
   @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } .ba-grid { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .page { padding: 16px 16px 40px; } .topbar-inner { padding: 12px 16px; } }
 </style>
@@ -489,13 +542,15 @@
         <div class="logo-text">AgentPay Firewall</div>
       </a>
       <span class="network-badge" id="netBadge">loading&hellip;</span>
-      <div class="vault-chip" id="vaultChip" style="display:none;">
-        <span class="addr" id="vaultAddr">&hellip;</span>
-        <a id="vaultEtherscan" class="addr-link" style="margin-left:6px; font-size:11px; color:var(--primary); text-decoration:underline;" target="_blank" rel="noopener">Etherscan</a>
-        <button class="btn-copy" id="btnCopy" title="Copy vault address" aria-label="Copy vault address"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      <div class="wallet-bar" id="walletBar" style="display:none;">
+        <span class="dot" id="walletDot" style="width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success)"></span>
+        <span class="addr" id="walletAddr">&hellip;</span>
+        <span class="balance"><span class="tabular" id="walletBal">&mdash;</span></span>
+        <span class="role-badge role-viewer" id="walletRole">VIEWER</span>
+        <button class="btn btn-outline btn-sm" id="btnDisconnect" style="margin-left:8px;">Disconnect</button>
       </div>
       <span class="status-pill active" id="statusPill"><span class="pill-dot active"></span>ACTIVE</span>
-      <button class="btn-connect" id="btnConnect" aria-label="Connect wallet">Connect wallet</button>
+      <button class="btn btn-primary" id="btnConnect" aria-label="Connect wallet">Connect wallet</button>
     </div>
   </div>
 
@@ -537,18 +592,29 @@
       </div>
     </div>
 
-    <!-- Approved recipients -->
-    <div class="section">
-      <div class="stat">
-        <div class="stat-label">Approved recipients</div>
-        <div id="recipientsArea" style="font-size:13px; color:var(--muted);"></div>
+    <!-- Contract panel -->
+    <div class="card section">
+      <div class="section-title">Contract</div>
+      <div class="contract-panel">
+        <div class="contract-row">
+          <div class="contract-kv"><span class="k">Address</span><span class="v" id="ctAddr">&hellip;</span><button class="btn-copy" id="btnCopyAddr" title="Copy contract address" aria-label="Copy contract address"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg></button></div>
+          <div class="contract-kv"><span class="k">Chain</span><span class="v" id="ctChain">&hellip;</span></div>
+          <div class="contract-kv"><span class="k">Owner</span><span class="v" id="ctOwner">&hellip;</span></div>
+          <div class="contract-kv"><span class="k">Guardian</span><span class="v" id="ctGuardian">&hellip;</span></div>
+          <div class="contract-kv"><span class="k">Change delay</span><span class="v" id="ctDelay">&hellip;</span></div>
+        </div>
+        <div class="collapsible">
+          <button class="collapsible-btn" id="btnToggleRaw" aria-expanded="false"><span>Raw policy</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="collapsible-content" id="rawPolicy"><pre id="rawPolicyJson">loading&hellip;</pre></div>
+        </div>
+        <div id="recipientsArea"></div>
       </div>
     </div>
 
     <!-- Try the agent -->
     <div class="card section">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div class="label" style="font-size:15px; font-weight:700; color:var(--text);">Try the agent</div>
+        <div style="font-size:15px; font-weight:700; color:var(--text);">Try the agent</div>
         <div class="demo-badge">DEMO ONLY &middot; throwaway testnet key</div>
       </div>
       <p style="font-size:13px; color:var(--muted); margin-bottom:14px; max-width:640px;">Simulated AI agent (not a real LLM). It uses the throwaway demo agent key from deployment.json. Each button attempts an on-chain payment and shows whether the firewall allows or blocks it.</p>
@@ -569,7 +635,7 @@
 
     <!-- Owner controls -->
     <div class="card section" id="ownerControls" style="display:none;">
-      <div class="label" style="font-size:15px; font-weight:700; color:var(--text);">Owner controls</div>
+      <div class="section-title">Owner controls</div>
       <p id="ownerHint" style="font-size:13px; color:var(--muted); margin-bottom:14px;"></p>
       <div class="owner-actions">
         <button class="btn btn-danger btn-sm" id="btnFreeze">Freeze agent</button>
@@ -584,6 +650,7 @@
       <div class="feed-toolbar">
         <div class="section-title">Live activity</div>
         <button class="btn btn-outline btn-sm" id="btnRefresh">Refresh</button>
+        <span style="display:flex;align-items:center;gap:6px; font-size:12px;color:var(--muted);"><span class="live-dot" style="width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:ping 2s infinite"></span>live</span>
       </div>
       <div id="feedSkeleton" style="display:none;">
         <div class="skeleton" style="width:60%;"></div>
@@ -637,22 +704,34 @@
     import { ethers } from "https://esm.sh/ethers@6.13.4";
 
     const ETH = "0x0000000000000000000000000000000000000000";
+    const SEPOLIA_CHAIN_ID = "0xAA36A7";
+    const SEPOLIA_CHAIN_NAME = "Ethereum Sepolia";
 
     /* ---------- elements ---------- */
     const els = {
       netBadge: document.getElementById("netBadge"),
       btnConnect: document.getElementById("btnConnect"),
+      btnDisconnect: document.getElementById("btnDisconnect"),
       statusPill: document.getElementById("statusPill"),
-      vaultChip: document.getElementById("vaultChip"),
-      vaultAddr: document.getElementById("vaultAddr"),
-      vaultEtherscan: document.getElementById("vaultEtherscan"),
-      btnCopy: document.getElementById("btnCopy"),
+      walletBar: document.getElementById("walletBar"),
+      walletDot: document.getElementById("walletDot"),
+      walletAddr: document.getElementById("walletAddr"),
+      walletBal: document.getElementById("walletBal"),
+      walletRole: document.getElementById("walletRole"),
       statVault: document.getElementById("statVault"),
       statCap: document.getElementById("statCap"),
       statBudget: document.getElementById("statBudget"),
       statSpent: document.getElementById("statSpent"),
       statSpentSub: document.getElementById("statSpentSub"),
       statProgress: document.getElementById("statProgress"),
+      ctAddr: document.getElementById("ctAddr"),
+      ctChain: document.getElementById("ctChain"),
+      ctOwner: document.getElementById("ctOwner"),
+      ctGuardian: document.getElementById("ctGuardian"),
+      ctDelay: document.getElementById("ctDelay"),
+      rawPolicyJson: document.getElementById("rawPolicyJson"),
+      btnToggleRaw: document.getElementById("btnToggleRaw"),
+      rawPolicy: document.getElementById("rawPolicy"),
       ownerControls: document.getElementById("ownerControls"),
       ownerHint: document.getElementById("ownerHint"),
       btnFreeze: document.getElementById("btnFreeze"),
@@ -673,13 +752,15 @@
       feedSkeleton: document.getElementById("feedSkeleton"),
       feedEmpty: document.getElementById("feedEmpty"),
       btnRefresh: document.getElementById("btnRefresh"),
-      toast: document.getElementById("toast"),
+      btnCopyAddr: document.getElementById("btnCopyAddr"),
       linkEtherscan: document.getElementById("linkEtherscan"),
+      toast: document.getElementById("toast"),
     };
 
     /* ---------- config ---------- */
     let config, abi, provider, contractRead, signer, agentContract, connectedAddress;
     let deployBlock = null;
+    let pollInterval = null;
 
     async function loadConfig() {
       const [depRes, abiRes] = await Promise.all([
@@ -709,19 +790,20 @@
       const isSepolia = Number(config.chainId) === 11155111;
       els.netBadge.textContent = isSepolia ? "Ethereum Sepolia" : "Localhost";
       els.netBadge.className = "network-badge" + (isSepolia ? " sepolia" : "");
+      els.ctChain.textContent = isSepolia ? "Ethereum Sepolia" : "Localhost";
     }
 
     function shortAddr(a) {
-      if (!a) return a;
+      if (!a) return "—";
       return a.slice(0, 6) + "…" + a.slice(-4);
     }
 
     function fmtEther(wei) {
       if (wei === null || wei === undefined) return "—";
-      return (Number(wei) / 1e18).toFixed(6) + " ETH";
+      return (Number(wei) / 1e18).toFixed(6);
     }
 
-    /* ---------- connect ---------- */
+    /* ---------- connect / disconnect ---------- */
     async function connectWallet() {
       if (!window.ethereum) {
         showToast("MetaMask not installed", "error");
@@ -729,35 +811,82 @@
       }
       try {
         els.btnConnect.disabled = true;
-        els.btnConnect.textContent = "Connecting&hellip;";
+        els.btnConnect.textContent = "Connecting…";
         await window.ethereum.request({ method: "eth_requestAccounts" });
         const browserProvider = new ethers.BrowserProvider(window.ethereum);
         const signer = await browserProvider.getSigner();
         connectedAddress = await signer.getAddress();
-        els.btnConnect.textContent = "Connected";
-        els.btnConnect.className = "btn-connect connected";
-        els.btnConnect.title = connectedAddress;
+        signer_ = signer;
+        setWalletUI(connectedAddress);
+        await switchToSepolia(browserProvider);
         await loadData();
+        startPolling();
         window.ethereum.on("accountsChanged", (accs) => {
           connectedAddress = accs[0] || null;
-          checkOwner();
-          loadData();
+          if (connectedAddress) setWalletUI(connectedAddress);
+          else { els.walletBar.style.display = "none"; els.btnConnect.style.display = "inline-block"; connectedAddress = null; signer_ = null; checkOwner(); loadData(); }
         });
         window.ethereum.on("chainChanged", () => window.location.reload());
       } catch (e) {
         els.btnConnect.disabled = false;
         els.btnConnect.textContent = "Connect wallet";
-        if (String(e.code) === "4001" || /user rejected/i.test(String(e.message || e))) {
+        const msg = String(e.message || e);
+        if (String(e.code) === "4001" || /user rejected/i.test(msg)) {
           showToast("Connection rejected by user", "error");
         } else {
-          showToast("Connect failed: " + (e.message || e), "error");
+          showToast("Connect failed: " + msg, "error");
         }
       }
     }
+    let signer_ = null;
+
+    async function switchToSepolia(browserProvider) {
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: SEPOLIA_CHAIN_ID }] });
+      } catch (err) {
+        if (err.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{ chainId: SEPOLIA_CHAIN_ID, chainName: SEPOLIA_CHAIN_NAME, nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 }, rpcUrls: [config.rpc], blockExplorerUrls: ["https://sepolia.etherscan.io"] }],
+            });
+          } catch (addErr) {
+            console.warn("add chain failed", addErr);
+          }
+        }
+      }
+    }
+
     els.btnConnect.addEventListener("click", connectWallet);
+    els.btnDisconnect.addEventListener("click", () => {
+      connectedAddress = null;
+      signer_ = null;
+      els.walletBar.style.display = "none";
+      els.btnConnect.style.display = "inline-block";
+      els.btnConnect.textContent = "Connect wallet";
+      els.btnConnect.disabled = false;
+      checkOwner();
+      loadData();
+    });
+
+    function setWalletUI(addr) {
+      els.btnConnect.style.display = "none";
+      els.walletBar.style.display = "flex";
+      els.walletAddr.textContent = shortAddr(addr);
+      els.walletDot.style.background = "#22C55E";
+      checkOwner();
+    }
 
     function checkOwner() {
       const isOwner = connectedAddress && connectedAddress.toLowerCase() === config.owner.toLowerCase();
+      const isGuardian = connectedAddress && connectedAddress.toLowerCase() === config.guardian.toLowerCase();
+      const isAgent = connectedAddress && connectedAddress.toLowerCase() === config.agent.toLowerCase();
+      let role = "VIEWER";
+      if (isOwner) role = "OWNER";
+      else if (isGuardian) role = "GUARDIAN";
+      else if (isAgent) role = "AGENT";
+      els.walletRole.textContent = role;
+      els.walletRole.className = "role-badge role-" + role.toLowerCase();
       if (isOwner) {
         els.ownerControls.style.display = "block";
         els.ownerHint.style.display = "none";
@@ -807,6 +936,55 @@
       return m[name] || name || "blocked by the firewall";
     }
 
+    /* ---------- transaction lifecycle ---------- */
+    const pendingTxs = new Map();
+
+    async function sendWithLifecycle(label, fn, onConfirmed) {
+      const id = Math.random().toString(36).slice(2, 9);
+      pendingTxs.set(id, { label, status: "confirming" });
+      renderPendingTx(id, "Waiting for wallet confirmation…", null);
+      try {
+        const tx = await fn();
+        pendingTxs.get(id).hash = tx.hash;
+        renderPendingTx(id, "Pending", tx.hash);
+        const receipt = await tx.wait();
+        pendingTxs.get(id).status = "confirmed";
+        renderPendingTx(id, `Confirmed (block ${receipt.blockNumber})`, tx.hash);
+        if (onConfirmed) await onConfirmed();
+        showToast(label + " confirmed.", "success");
+        return receipt;
+      } catch (e) {
+        pendingTxs.get(id).status = "failed";
+        const { name } = errorName(e);
+        renderPendingTx(id, `Failed: ${friendlyError(name)}`, pendingTxs.get(id).hash, name);
+        showToast(label + " failed: " + friendlyError(name), "error");
+        throw e;
+      } finally {
+        setTimeout(() => pendingTxs.delete(id), 6000);
+      }
+    }
+
+    function renderPendingTx(id, status, hash, errorName_) {
+      let el = document.getElementById("pendTx-" + id);
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pendTx-" + id;
+        el.className = "pend-tx";
+        el.innerHTML = `<div class="pend-label"></div><div class="pend-status"></div><div class="pend-txlink"></div>`;
+        document.getElementById("pendingTxPanel").appendChild(el);
+      }
+      el.querySelector(".pend-label").textContent = status;
+      el.querySelector(".pend-status").textContent = errorName_ ? "(" + errorName_ + ")" : "";
+      const linkEl = el.querySelector(".pend-txlink");
+      if (hash) {
+        const base = Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : "#";
+        linkEl.innerHTML = `<a class="item-tx" href="${base}${hash}" target="_blank" rel="noopener">tx</a>`;
+        linkEl.style.display = "inline";
+      } else {
+        linkEl.style.display = "none";
+      }
+    }
+
     /* ---------- load data ---------- */
     async function loadData() {
       try {
@@ -815,11 +993,23 @@
         els.statusPill.className = "status-pill " + (frozen ? "frozen" : "active");
         els.statusPill.innerHTML = `<span class="pill-dot ${frozen ? "frozen" : "active"}"></span>${frozen ? "FROZEN" : "ACTIVE"}`;
 
+        // contract info for panel
+        const [ownerAddr, guardianAddr, delay] = await Promise.all([
+          contractRead.owner(),
+          contractRead.guardian(),
+          contractRead.changeDelay(),
+        ]);
+        els.ctAddr.textContent = shortAddr(config.agentPay);
+        els.ctOwner.textContent = shortAddr(ownerAddr);
+        els.ctGuardian.textContent = shortAddr(guardianAddr);
+        els.ctDelay.textContent = delay + "s";
+        const base = Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/address/" : "#";
+        els.linkEtherscan.href = base + config.agentPay;
+
         // vault balance
         const bal = await provider.getBalance(config.agentPay);
         els.statVault.textContent = fmtEther(bal);
-        els.vaultAddr.textContent = shortAddr(config.agentPay);
-        els.vaultChip.style.display = "flex";
+        els.walletBal.textContent = fmtEther(bal);
 
         // policy
         const pol = await contractRead.policies(config.agent, ETH);
@@ -829,19 +1019,20 @@
         const pct = Number(pol.dailyBudget) > 0 ? Math.min(100, (Number(pol.spent) / Number(pol.dailyBudget)) * 100) : 0;
         els.statProgress.style.width = pct + "%";
         els.statProgress.className = "progress-bar " + (pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok");
-        els.statSpentSub.textContent = pct.toFixed(0) + "% of daily budget used &middot; remaining " + fmtEther(pol.dailyBudget - pol.spent);
+        els.statSpentSub.textContent = pct.toFixed(0) + "% of daily budget used · remaining " + fmtEther(pol.dailyBudget - pol.spent);
 
         // recipients
         const mAllowed = await contractRead.allowlist(config.agent, config.merchant);
         const aAllowed = await contractRead.allowlist(config.agent, config.attacker);
-        // (rendered in recipients area below via stat area? We'll put in stat tiles via a small note)
         document.getElementById("recipientsArea").innerHTML = `
           <span class="rec-badge ${mAllowed ? "rec-yes" : "rec-no"}">${mAllowed ? "APPROVED" : "BLOCKED"}&nbsp;merchant ${shortAddr(config.merchant)}</span>
           <span class="rec-badge rec-no">${aAllowed ? "APPROVED" : "BLOCKED"}&nbsp;attacker ${shortAddr(config.attacker)}</span>`;
 
-        // feed
+        // raw policy
+        els.rawPolicyJson.textContent = JSON.stringify({ active: pol.active, perTxCap: pol.perTxCap.toString(), dailyBudget: pol.dailyBudget.toString(), spent: pol.spent.toString(), windowStart: pol.windowStart.toString() }, null, 2);
+
+        // feed + pending
         await loadFeed();
-        // pending
         await loadPending();
         checkOwner();
       } catch (e) {
@@ -850,9 +1041,17 @@
       }
     }
 
-    /* ---------- recipients badges (inject into stat area) ---------- */
-    function renderRecipients() {
-      // Placeholder - recipients shown via stat area if needed
+    /* ---------- recipients badges CSS injected ---------- */
+    function ensureRecipientStyles() {
+      if (document.getElementById("recip-styles")) return;
+      const s = document.createElement("style");
+      s.id = "recip-styles";
+      s.textContent = `
+        .rec-badge { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+        .rec-yes { background:#12331e; border:1px solid #1e5a3d; color:#bef2bb; }
+        .rec-no { background:#3a1212; border:1px solid #7a2323; color:#fecaca; }
+      `;
+      document.head.appendChild(s);
     }
 
     /* ---------- feed ---------- */
@@ -922,7 +1121,6 @@
         if (base && ev.transactionHash) {
           txLink = `<a class="item-tx" href="${base}${ev.transactionHash}" target="_blank" rel="noopener">tx</a>`;
         }
-        const ago = timeAgo(ev.blockNumber ? Date.now() : 0);
         div.innerHTML = `
           <span class="item-dot ${dot}"></span>
           <div class="item-content">
@@ -932,10 +1130,6 @@
         `;
         els.feed.appendChild(div);
       }
-    }
-
-    function timeAgo() {
-      return "just now";
     }
 
     /* ---------- pending ---------- */
@@ -982,37 +1176,25 @@
 
     /* ---------- owner actions ---------- */
     async function handleOwnerAction(id, action) {
-      if (!signer) { showToast("Connect the owner wallet first", "error"); return; }
-      const contract = contractRead.connect(signer);
+      if (!signer_) { showToast("Connect the owner wallet first", "error"); return; }
+      const contract = contractRead.connect(signer_);
       try {
-        const tx = await contract[action === "approve" ? "approveRequest" : "rejectRequest"](id);
-        showToast(action + "ing&hellip;", "success");
-        await tx.wait();
-        showToast(action + "ed.", "success");
-        await loadData();
+        await sendWithLifecycle(action + " request", () => contract[action === "approve" ? "approveRequest" : "rejectRequest"](id), () => loadData());
       } catch (e) {
         const { name } = errorName(e);
         showToast("Failed: " + (name || e.message || e), "error");
       }
     }
     els.btnFreeze.addEventListener("click", async () => {
-      if (!signer) { showToast("Connect the owner wallet first", "error"); return; }
+      if (!signer_) { showToast("Connect the owner wallet first", "error"); return; }
       try {
-        const tx = await contractRead.connect(signer).freezeAgent(config.agent);
-        showToast("Freezing agent&hellip;", "success");
-        await tx.wait();
-        showToast("Agent frozen.", "success");
-        await loadData();
+        await sendWithLifecycle("Freeze agent", () => contractRead.connect(signer_).freezeAgent(config.agent), () => loadData());
       } catch (e) { showToast("Freeze failed: " + (e.message || e), "error"); }
     });
     els.btnUnfreeze.addEventListener("click", async () => {
-      if (!signer) { showToast("Connect the owner wallet first", "error"); return; }
+      if (!signer_) { showToast("Connect the owner wallet first", "error"); return; }
       try {
-        const tx = await contractRead.connect(signer).unfreezeAgent(config.agent);
-        showToast("Unfreezing agent&hellip;", "success");
-        await tx.wait();
-        showToast("Agent unfrozen.", "success");
-        await loadData();
+        await sendWithLifecycle("Unfreeze agent", () => contractRead.connect(signer_).unfreezeAgent(config.agent), () => loadData());
       } catch (e) { showToast("Unfreeze failed: " + (e.message || e), "error"); }
     });
 
@@ -1024,9 +1206,12 @@
     function showDemo(kind, title, reason, tech, txHash) {
       const el = els.demoResult;
       const isOk = kind === "ok";
-      el.className = "result-card result-" + kind + " show";
+      const isPending = kind === "pending";
+      el.className = "result-card result-" + (isOk ? "ok" : isPending ? "pending" : "bad") + " show";
       const icon = isOk
         ? '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : isPending
+        ? '<svg viewBox="0 0 24 24"><path d="M12 2v20M12 2l-10 5 10 5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>'
         : '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M2 17l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>';
       const txHtml = txHash ? ` <a class="item-tx" href="${Number(config.chainId) === 11155111 ? "https://sepolia.etherscan.io/tx/" : "#"}${txHash}" target="_blank" rel="noopener">view tx</a>` : "";
       el.innerHTML = `
@@ -1117,6 +1302,38 @@
     els.demoPrompt.addEventListener("click", () => runDemo("prompt"));
     els.demoRequest.addEventListener("click", () => runDemo("request"));
 
+    /* ---------- pending tx panel styles ---------- */
+    function ensurePendingTxStyles() {
+      if (document.getElementById("pendtx-styles")) return;
+      const s = document.createElement("style");
+      s.id = "pendtx-styles";
+      s.textContent = `
+        .pend-tx { display:flex; align-items:center; gap:8px; padding:6px 10px; background:#0b1020; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; font-size:12px; }
+        .pend-label { color:var(--muted); font-size:11px; }
+        .pend-status { color:var(--danger); font-size:11px; font-weight:700; }
+        .pend-txlink { margin-left:auto; font-size:11px; color:var(--primary); }
+      `;
+      document.head.appendChild(s);
+    }
+    // create panel lazily
+    function getPendingTxPanel() {
+      let p = document.getElementById("pendingTxPanel");
+      if (!p) {
+        p = document.createElement("div");
+        p.id = "pendingTxPanel";
+        p.style.marginTop = "10px";
+        const ownerCard = els.ownerControls;
+        if (ownerCard) ownerCard.appendChild(p);
+      }
+      return p;
+    }
+    const _origRenderPendingTx = renderPendingTx;
+    renderPendingTx = function(id, status, hash, errorName_) {
+      ensurePendingTxStyles();
+      getPendingTxPanel();
+      _origRenderPendingTx(id, status, hash, errorName_);
+    }
+
     /* ---------- toast ---------- */
     function showToast(msg, type) {
       const t = els.toast;
@@ -1126,18 +1343,32 @@
     }
 
     /* ---------- copy ---------- */
-    els.btnCopy.addEventListener("click", async () => {
+    els.btnCopyAddr.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(config.agentPay);
         showToast("Address copied", "success");
       } catch { /* ignore */ }
     });
 
+    /* ---------- collapsible ---------- */
+    els.btnToggleRaw.addEventListener("click", () => {
+      const open = els.rawPolicy.classList.toggle("open");
+      els.btnToggleRaw.setAttribute("aria-expanded", open);
+    });
+
     /* ---------- refresh ---------- */
     els.btnRefresh.addEventListener("click", loadData);
 
+    /* ---------- polling ---------- */
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(loadData, 8000);
+    }
+
     /* ---------- init ---------- */
-    loadConfig().then(loadData).catch(e => { console.error("init", e); showToast("Failed to load deployment: " + (e.message || e), "error"); });
+    loadConfig().then(loadData).then(() => {
+      ensureRecipientStyles();
+    }).catch(e => { console.error("init", e); showToast("Failed to load deployment: " + (e.message || e), "error"); });
   </script>
 </body>
 </html>
