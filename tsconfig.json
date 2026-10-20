@@ -11,5 +11,5 @@
     "outDir": "./dist",
     "rootDir": "."
   },
-  "include": ["contracts", "test", "scripts", "agent"]
+  "include": ["hardhat.config.ts", "contracts", "test", "scripts", "agent", "typechain-types"]
 }

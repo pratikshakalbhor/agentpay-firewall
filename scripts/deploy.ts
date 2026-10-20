@@ -1,4 +1,10 @@
 import { ethers, network } from "hardhat";
+import type {
+    HDNodeWallet as EthersHDNodeWallet,
+    Contract as EthersContract,
+    ContractFactory as EthersContractFactory,
+    TransactionResponse as EthersTransactionResponse,
+} from "ethers";
 import { join } from "path";
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import dotenv from "dotenv";
@@ -52,8 +58,8 @@ const RETRIABLE = /replacement transaction underpriced|nonce too low|nonce expir
  */
 async function sendTx(
     label: string,
-    fn: () => Promise<ethers.TransactionResponse>
-): Promise<ethers.TransactionResponse> {
+    fn: () => Promise<EthersTransactionResponse>
+): Promise<EthersTransactionResponse> {
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
@@ -78,12 +84,12 @@ async function sendTx(
  */
 async function deployContract(
     label: string,
-    fn: () => Promise<ethers.Contract>
-): Promise<ethers.Contract> {
+    fn: () => Promise<unknown>
+): Promise<EthersContract> {
     let lastErr: unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            const contract = await fn();
+            const contract = (await fn()) as EthersContract;
             await contract.waitForDeployment();
             const deployTx = await (contract as any).deployTransaction;
             if (deployTx) {
@@ -141,9 +147,9 @@ async function main() {
     // ------------------------------------------------------------------
     // Roles
     // ------------------------------------------------------------------
-    let agent: ethers.Wallet;
-    let guardian: ethers.Wallet;
-    let attacker: ethers.Wallet;
+    let agent: EthersHDNodeWallet;
+    let guardian: EthersHDNodeWallet;
+    let attacker: EthersHDNodeWallet;
     let merchant: string; // address only is enough (merchant only receives)
     const demoKeys: Record<string, string> = {};
 
@@ -203,7 +209,7 @@ async function main() {
     const usdc = await deployContract("MockUSDC", () =>
         ethers
             .getContractFactory("MockUSDC")
-            .then((f: ethers.ContractFactory) => f.deploy())
+            .then((f: EthersContractFactory) => f.deploy())
     );
     const usdcAddress = await usdc.getAddress();
     console.log(`MockUSDC deployed: ${usdcAddress}`);
@@ -211,7 +217,7 @@ async function main() {
     const agentPay = await deployContract("AgentPay", () =>
         ethers
             .getContractFactory("AgentPay")
-            .then((f: ethers.ContractFactory) => f.deploy(guardian.address, delay))
+            .then((f: EthersContractFactory) => f.deploy(guardian.address, delay))
     );
     const agentPayAddress = await agentPay.getAddress();
     console.log(`AgentPay deployed: ${agentPayAddress} (guardian=${guardian.address}, changeDelay=${delay}s)`);
@@ -229,10 +235,11 @@ async function main() {
     await sendTx("mint USDC to owner", () =>
         usdc.mint(owner.address, usdcFund)
     );
+    const usdcOwner = usdc.connect(owner) as EthersContract;
     await sendTx("approve AgentPay USDC", () =>
-        usdc.connect(owner).approve(agentPayAddress, usdcFund)
+        usdcOwner.approve(agentPayAddress, usdcFund)
     );
-    const apOwner = agentPay.connect(owner);
+    const apOwner = agentPay.connect(owner) as EthersContract;
     await sendTx("deposit USDC into vault", () =>
         apOwner.depositToken(usdcAddress, usdcFund)
     );
@@ -285,7 +292,9 @@ async function main() {
     const deployment: Record<string, unknown> = {
         chainId,
         network: network.name,
-        rpc: isLocal ? "http://127.0.0.1:8545" : (network.config.url ?? ""),
+        rpc: isLocal
+            ? "http://127.0.0.1:8545"
+            : ("url" in network.config ? network.config.url : ""),
         agentPay: agentPayAddress,
         usdc: usdcAddress,
         owner: owner.address,

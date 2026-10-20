@@ -5,7 +5,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-verify";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "hardhat-gas-reporter";
-import "hardhat-coverage";
+import "solidity-coverage";
 
 const config: HardhatUserConfig = {
   solidity: {
