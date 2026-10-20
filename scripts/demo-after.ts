@@ -1,5 +1,6 @@
 import { ethers, network } from "hardhat";
-import { Interface } from "ethers";
+import { Interface, type BaseContract, type Wallet as EthersWallet } from "ethers";
+import { describeRevert } from "./lib/revert";
 import { readFileSync, existsSync } from "fs";
 import dotenv from "dotenv";
 import picocolors from "picocolors";
@@ -10,22 +11,6 @@ const { green, red, yellow, cyan, gray, bold, white } = picocolors;
 
 /// @notice ETH token address (AgentPay uses address(0) for ETH).
 const ETH = ethers.ZeroAddress;
-
-/// @notice Human-readable explanations for AgentPay custom errors.
-const ERROR_MESSAGES: Record<string, string> = {
-    ExceedsPerTxCap: "blocked: over the per-transaction cap",
-    ExceedsDailyBudget: "blocked: over the daily budget",
-    NotAllowlisted: "blocked: recipient is not approved",
-    NotAgent: "blocked: caller is not an active agent",
-    Frozen: "blocked: the agent or vault is frozen",
-    ZeroAmount: "blocked: zero amount",
-    InsufficientVaultBalance: "blocked: vault has insufficient balance",
-    RequestExpired: "blocked: payment request has expired",
-    RequestNotPending: "blocked: no pending payment request",
-    ProposalNotReady: "blocked: proposal not yet executable",
-    NotAuthorized: "blocked: not authorized",
-    TransferFailed: "blocked: token transfer failed",
-};
 
 interface Deployment {
     chainId: number;
@@ -49,35 +34,23 @@ interface Deployment {
 let totalTried = 0n;
 let totalMoved = 0n;
 
+/** @notice Decode a caught revert into a plain-English line (shared with agent/agent.ts). */
 function decodeError(iface: Interface, error: unknown): string {
-    const err = error as { data?: string; message?: string; reason?: string };
-    const data = err.data;
-    if (typeof data === "string" && data.startsWith("0x") && data.length > 10) {
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const desc: { name?: string; args?: any } | null = iface.parseError(data);
-            if (desc) {
-                const name = desc.name ?? "UnknownError";
-                const friendly = ERROR_MESSAGES[name] ?? name;
-                const detail = desc.args ? ` args=${JSON.stringify(desc.args)}` : "";
-                return `${friendly} (${name}${detail})`;
-            }
-        } catch {
-            // fall through to raw message
-        }
-    }
-    return err.message ?? err.reason ?? String(error);
+    return describeRevert(iface, error);
 }
 
 /** @notice Pre-check with a raw eth_call: no state changes, no gas spent. */
 async function staticTry(
-    contract: ethers.Contract,
+    contract: BaseContract,
     from: string,
     method: string,
     ...args: any[]
 ): Promise<{ ok: boolean; error?: string }> {
     try {
         const fragment = contract.interface.getFunction(method);
+        if (!fragment) {
+            return { ok: false, error: `unknown method: ${method}` };
+        }
         const data = contract.interface.encodeFunctionData(fragment, args);
         await ethers.provider.call({ to: contract.target, from, data });
         return { ok: true };
@@ -87,7 +60,7 @@ async function staticTry(
 }
 
 /** @notice Broadcast a transaction and wait for the receipt. */
-async function sendAndWait(contract: ethers.Contract, method: string, ...args: any[]) {
+async function sendAndWait(contract: BaseContract, method: string, ...args: any[]) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tx = await (contract as any)[method](...args);
     return await tx.wait();
@@ -107,10 +80,10 @@ async function main() {
     // ------------------------------------------------------------------
     // Signers
     // ------------------------------------------------------------------
-    let owner: ethers.Wallet;
+    let owner: EthersWallet;
     if (isLocal) {
         const signers = await ethers.getSigners();
-        owner = signers[0] as unknown as ethers.Wallet;
+        owner = signers[0] as unknown as EthersWallet;
     } else {
         if (!process.env.PRIVATE_KEY) throw new Error("PRIVATE_KEY must be set for sepolia");
         owner = new ethers.Wallet(process.env.PRIVATE_KEY, ethers.provider);
@@ -131,7 +104,7 @@ async function main() {
 
     // Attacker balance before the demo (funded by deploy for gas). We assert
     // the CHANGE is zero — AgentPay must never move funds to the attacker.
-    const balAttackerStart = await ethers.provider.getBalance(attacker);
+    const balAttackerStart: bigint = await ethers.provider.getBalance(attacker);
 
     // Policy params (mirrors deploy.ts)
     const perTxCap = ethers.parseEther("0.002");   // 0.002 ETH per transaction
@@ -155,7 +128,7 @@ async function main() {
     async function attemptSend(
         label: string,
         amount: bigint,
-        contract: ethers.Contract,
+        contract: BaseContract,
         from: string,
         method: string,
         args: any[],
@@ -312,8 +285,14 @@ async function main() {
     console.log(cyan('Agent: "drip small ETH payments to the merchant until the daily budget is exhausted."'));
 
     // Read the remaining budget in the current window (no time reset).
-    const pol = await agentPay.policies(agent.address, ETH);
-    const remaining = pol.dailyBudget - pol.spent;
+    const pol = (await agentPay.policies(agent.address, ETH)) as {
+        active: boolean;
+        perTxCap: bigint;
+        dailyBudget: bigint;
+        spent: bigint;
+        windowStart: bigint;
+    };
+    const remaining: bigint = pol.dailyBudget - pol.spent;
     console.log(gray(`  spent in window: ${ethers.formatEther(pol.spent)} ETH`));
     console.log(gray(`  remaining budget: ${ethers.formatEther(remaining)} ETH`));
 

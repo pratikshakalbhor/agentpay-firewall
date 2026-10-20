@@ -2,27 +2,12 @@ import { ethers, Interface, Wallet } from "ethers";
 import { join } from "path";
 import { readFileSync, existsSync } from "fs";
 import picocolors from "picocolors";
+import { describeRevert } from "../scripts/lib/revert";
 
 const { green, red, yellow, cyan, gray, bold, white } = picocolors;
 
 /// @notice ETH token address (AgentPay uses address(0) for ETH).
 const ETH = ethers.ZeroAddress;
-
-/** @notice Human-readable explanations for the custom errors AgentPay reverts with. */
-const ERROR_MESSAGES: Record<string, string> = {
-    ExceedsPerTxCap: "blocked: over the per-transaction cap",
-    ExceedsDailyBudget: "blocked: over the daily budget",
-    NotAllowlisted: "blocked: recipient is not approved",
-    NotAgent: "blocked: caller is not an active agent",
-    Frozen: "blocked: the agent or vault is frozen",
-    ZeroAmount: "blocked: zero amount",
-    InsufficientVaultBalance: "blocked: vault has insufficient balance",
-    RequestExpired: "blocked: payment request has expired",
-    RequestNotPending: "blocked: no pending payment request",
-    ProposalNotReady: "blocked: proposal not yet executable",
-    NotAuthorized: "blocked: not authorized",
-    TransferFailed: "blocked: token transfer failed",
-};
 
 /**
  * @title SimulatedAgent
@@ -58,24 +43,7 @@ export class SimulatedAgent {
 
     /** @notice Decode a revert reason into a human-readable string. */
     public decodeRevert(error: unknown): string {
-        const err = error as { data?: string; message?: string; reason?: string };
-        const data = err.data;
-        if (typeof data === "string" && data.startsWith("0x")) {
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const desc: { name?: string; args?: any } | null =
-                    (this.iface as any).parseError(data);
-                if (desc) {
-                    const name = desc.name ?? "UnknownError";
-                    const friendly = ERROR_MESSAGES[name] ?? name;
-                    const detail = desc.args ? ` args=${JSON.stringify(desc.args)}` : "";
-                    return `${friendly} (${name}${detail})`;
-                }
-            } catch {
-                // fall through to the raw message
-            }
-        }
-        return err.message ?? err.reason ?? String(error);
+        return describeRevert(this.iface, error);
     }
 
     /** @notice Attempt an agentPay and log the outcome. */
